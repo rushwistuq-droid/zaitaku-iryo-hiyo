@@ -4,7 +4,13 @@
  */
 const FEE_2026 = {
     visit: { home: 890, facility: 215 },
-    emergency: 750,
+    houseCall: 720,
+    reExam: 75,
+    emergencyAddon: {
+        'kinou-kyouka': 750,
+        'zashin-ippan': 650,
+        'other-clinic': 325
+    },
     prescription: 68,
     noPrescriptionBonus: 300,
     management: {
@@ -20,18 +26,23 @@ const FEE_2026 = {
         }
     },
     guidance: {
-        none: 0, oxygen: 2500, injection: 650, catheter: 1800, cancer: 1500, wound: 1050
+        none: 0, oxygen: 2400, injection: 650, catheter: 1400, cancer: 1500, wound: 1050
     },
     cancerCare: {
         section1: { withRx: 1650, withoutRx: 1852 },
         section2: { withRx: 1495, withoutRx: 1687 }
     },
-    nursingGuide: { home: 299, facility: 287 },
+    nursingGuide: { home: 298, facility: 286 },
     houkatsuAddon: 150,
     section3ManageRatio: 0.8
 };
 
 const CLINIC_SECTION = { 'kinou-kyouka': 'section1', 'zashin-ippan': 'section2', 'other-clinic': 'section3' };
+
+function getEmergencyVisitPoints(clinicType) {
+    const addon = FEE_2026.emergencyAddon[clinicType] || FEE_2026.emergencyAddon['other-clinic'];
+    return FEE_2026.houseCall + addon + FEE_2026.reExam;
+}
 
 function getHighCostLimit(age, incomeKey, combinedMedicalTotal10) {
     const isSenior = age === '75' || age === '70';
@@ -86,7 +97,7 @@ function calcPoints(p) {
     let pts = FEE_2026.visit[loc] * p.visitFreq;
     pts += getManagementPoints(p.location, section, p.visitFreq, p.patientStatus, p.clinicMeets20);
     pts += (FEE_2026.guidance[p.homeGuidance] || 0);
-    pts += p.emergencyVisits * FEE_2026.emergency;
+    pts += p.emergencyVisits * getEmergencyVisitPoints(p.clinicType);
     pts += p.hasPrescription ? FEE_2026.prescription : FEE_2026.noPrescriptionBonus;
     return pts;
 }
@@ -99,7 +110,7 @@ function calcTotal(p) {
     const rawDrug = Math.round(medDrug10 * p.ratio);
     let nursing = 0;
     if (p.useNursing) {
-        const u = (p.location === 'home' ? 299 : 287) * Math.min(2, p.visitFreq);
+        const u = (p.location === 'home' ? 298 : 286) * Math.min(2, p.visitFreq);
         nursing = Math.round(u * 10 * (p.nursingRatio || 0.1));
     }
     let medical = rawMed, medication = rawDrug, n = nursing;
@@ -108,7 +119,7 @@ function calcTotal(p) {
         const nr = Math.min(0.2, p.ratio);
         medical = Math.round(med10 * nr);
         medication = Math.round(medDrug10 * nr);
-        n = Math.round((p.useNursing ? (p.location === 'home' ? 299 : 287) * Math.min(2, p.visitFreq) * 10 : 0) * Math.min(0.2, p.nursingRatio || 0.1));
+        n = Math.round((p.useNursing ? (p.location === 'home' ? 298 : 286) * Math.min(2, p.visitFreq) * 10 : 0) * Math.min(0.2, p.nursingRatio || 0.1));
         const cap = p.nanbyouCap ?? 10000;
         const c = applyMonthlyCap(medical, medication, n, cap);
         medical = c.medical; medication = c.medication; n = c.nursing;
@@ -130,14 +141,14 @@ const tests = [
             homeGuidance: 'none', hasPrescription: true, emergencyVisits: 0, ratio: 0.3, useNursing: true,
             nursingRatio: 0.1, medTotal10: 10000, publicExpense: 'none', age: '69', incomeKey: 'u70-c' },
         expectPts: 890 * 2 + 4085 + 68,
-        expectTotal: Math.round((890 * 2 + 4085 + 68) * 10 * 0.3) + 598 + 3000
+        expectTotal: Math.round((890 * 2 + 4085 + 68) * 10 * 0.3) + 596 + 3000
     },
     {
         name: '酸素指導管理（排他・1件のみ）',
         p: { location: 'home', clinicType: 'kinou-kyouka', visitFreq: 2, patientStatus: 'no', clinicMeets20: true,
             homeGuidance: 'oxygen', hasPrescription: true, emergencyVisits: 0, ratio: 0.3, useNursing: true,
             nursingRatio: 0.1, medTotal10: 10000, publicExpense: 'none', age: '69', incomeKey: 'u70-c' },
-        expectPts: 890 * 2 + 4085 + 2500 + 68
+        expectPts: 890 * 2 + 4085 + 2400 + 68
     },
     {
         name: '2割要件未達 → 月1回管理料',
@@ -186,7 +197,7 @@ const tests = [
         p: { location: 'home', clinicType: 'kinou-kyouka', visitFreq: 2, patientStatus: 'no', clinicMeets20: true,
             homeGuidance: 'oxygen', hasPrescription: true, emergencyVisits: 0, ratio: 0.1, useNursing: true,
             nursingRatio: 0.1, medTotal10: 100000, publicExpense: 'none', age: '75', incomeKey: 'o70-general' },
-        expectTotalCap: 18000 + 598 // 医療+薬8433+10000=18433 → 18000上限、介護は別
+        expectTotalCap: 18000 + 596
     },
     {
         name: '指定難病2割・上限10000',
@@ -194,6 +205,27 @@ const tests = [
             homeGuidance: 'oxygen', hasPrescription: true, emergencyVisits: 0, ratio: 0.3, useNursing: true,
             nursingRatio: 0.1, medTotal10: 10000, publicExpense: 'nanbyou', nanbyouCap: 10000, age: '69', incomeKey: 'u70-c' },
         expectTotal: 10000
+    },
+    {
+        name: '緊急往診1回・機能強化型（720+750+75）',
+        p: { location: 'home', clinicType: 'kinou-kyouka', visitFreq: 2, patientStatus: 'no', clinicMeets20: true,
+            homeGuidance: 'none', hasPrescription: true, emergencyVisits: 1, ratio: 0.3, useNursing: false,
+            medTotal10: 0, publicExpense: 'none', age: '69', incomeKey: 'u70-c' },
+        expectPts: 890 * 2 + 4085 + 68 + 1545
+    },
+    {
+        name: '緊急往診1回・一般診療所（720+325+75）',
+        p: { location: 'home', clinicType: 'other-clinic', visitFreq: 2, patientStatus: 'no', clinicMeets20: true,
+            homeGuidance: 'none', hasPrescription: true, emergencyVisits: 1, ratio: 0.3, useNursing: false,
+            medTotal10: 0, publicExpense: 'none', age: '69', incomeKey: 'u70-c' },
+        expectPts: 890 * 2 + Math.round(2735 * 0.8) + 68 + 1120
+    },
+    {
+        name: '居宅療養管理指導費Ⅱ・自宅1人298単位',
+        p: { location: 'home', clinicType: 'kinou-kyouka', visitFreq: 2, patientStatus: 'no', clinicMeets20: true,
+            homeGuidance: 'none', hasPrescription: true, emergencyVisits: 0, ratio: 0.1, useNursing: true,
+            nursingRatio: 0.1, medTotal10: 0, publicExpense: 'none', age: '75', incomeKey: 'o70-general' },
+        expectNursing: 596
     }
 ];
 
@@ -210,6 +242,9 @@ tests.forEach(t => {
     }
     if (t.expectTotalCap !== undefined && r.total !== t.expectTotalCap) {
         ok = false; msg += ` total=${r.total} expected=${t.expectTotalCap}`;
+    }
+    if (t.expectNursing !== undefined && r.nursing !== t.expectNursing) {
+        ok = false; msg += ` nursing=${r.nursing} expected=${t.expectNursing}`;
     }
     if (ok) { passed++; console.log(`✓ ${t.name}`); }
     else { failed++; console.log(`✗ ${t.name}:${msg}`); }

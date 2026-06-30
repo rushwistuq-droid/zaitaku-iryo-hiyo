@@ -70,7 +70,13 @@ document.addEventListener('DOMContentLoaded', () => {
     // 令和8年度（2026年6月施行）診療報酬 — 単一建物1人想定
     const FEE_2026 = {
         visit: { home: 890, facility: 215 },
-        emergency: 750,
+        houseCall: 720,
+        reExam: 75,
+        emergencyAddon: {
+            'kinou-kyouka': 750,
+            'zashin-ippan': 650,
+            'other-clinic': 325
+        },
         prescription: 68,
         noPrescriptionBonus: 300,
         management: {
@@ -87,9 +93,9 @@ document.addEventListener('DOMContentLoaded', () => {
         },
         guidance: {
             none: { points: 0, label: 'なし' },
-            oxygen: { points: 2500, label: '在宅酸素療法指導管理料' },
+            oxygen: { points: 2400, label: '在宅酸素療法指導管理料' },
             injection: { points: 650, label: '在宅自己注射指導管理料' },
-            catheter: { points: 1800, label: '在宅自己導尿指導管理料' },
+            catheter: { points: 1400, label: '在宅自己導尿指導管理料' },
             cancer: { points: 1500, label: '在宅悪性腫瘍患者指導管理料' },
             wound: { points: 1050, label: '在宅寝たきり患者処置指導管理料' }
         },
@@ -97,7 +103,7 @@ document.addEventListener('DOMContentLoaded', () => {
             section1: { withRx: 1650, withoutRx: 1852 },
             section2: { withRx: 1495, withoutRx: 1687 }
         },
-        nursingGuide: { home: 299, facility: 287 },
+        nursingGuide: { home: 298, facility: 286 },
         houkatsuAddon: 150,
         section3ManageRatio: 0.8
     };
@@ -198,6 +204,11 @@ document.addEventListener('DOMContentLoaded', () => {
         return { medical: m, medication: med, nursing: n, deduction: total - cap };
     }
 
+    function getEmergencyVisitPoints(clinicType) {
+        const addon = FEE_2026.emergencyAddon[clinicType] || FEE_2026.emergencyAddon['other-clinic'];
+        return FEE_2026.houseCall + addon + FEE_2026.reExam;
+    }
+
     function getManagementPoints(location, section, visitFreq, patientStatus, clinicMeets20) {
         const locKey = location === 'home' ? 'home' : 'facility';
         const rates = FEE_2026.management[locKey][section];
@@ -245,7 +256,7 @@ document.addEventListener('DOMContentLoaded', () => {
         breakdown.management = getManagementPoints(location, section, visitFreq, patientStatus, clinicMeets20);
 
         if (emergencyVisits > 0) {
-            breakdown.emergency = emergencyVisits * FEE_2026.emergency;
+            breakdown.emergency = emergencyVisits * getEmergencyVisitPoints(clinicType);
         }
 
         const guidance = FEE_2026.guidance[homeGuidanceType] || FEE_2026.guidance.none;
@@ -512,7 +523,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
         updateDonutChart(result.medical, result.nursing, result.medication);
         updateAdvice({
-            age, useNursing, publicExpense, hasPrescription, visitFreq,
+            age, useNursing, publicExpense, hasPrescription, visitFreq, emergencyVisits,
             applyCancerCare, hasDisabilityCert, homeGuidanceType, clinicMeets20, patientStatus, clinicType
         });
         updatePrintData({
@@ -555,7 +566,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     function updateAdvice(ctx) {
         const {
-            age, useNursing, publicExpense, hasPrescription, visitFreq,
+            age, useNursing, publicExpense, hasPrescription, visitFreq, emergencyVisits,
             applyCancerCare, hasDisabilityCert, homeGuidanceType, clinicMeets20, patientStatus, clinicType
         } = ctx;
         const isSenior = age === '75' || age === '70';
@@ -610,6 +621,10 @@ document.addEventListener('DOMContentLoaded', () => {
 
         if (hasPrescription) {
             items.push('<strong>お薬代</strong>: 負担割合変更時は10割換算で自動再計算。高額療養費・難病上限に合算されます。');
+        }
+
+        if (emergencyVisits > 0) {
+            items.push('<strong>緊急往診</strong>: 往診料720点＋緊急往診加算（機能強化型750点・在支診650点・一般325点）＋再診料75点の概算です。夜間・休日加算は含みません。');
         }
 
         adviceContent.innerHTML = `<ul>${items.map(t => `<li>${t}</li>`).join('')}</ul>`;

@@ -1,0 +1,1033 @@
+:root {
+    --primary: #0d9488;
+    --primary-hover: #0f766e;
+    --primary-light: #f0fdfa;
+    --secondary: #d97706;
+    --secondary-light: #fef3c7;
+    --danger: #e11d48;
+    --danger-light: #ffe4e6;
+    --success: #16a34a;
+    --success-light: #dcfce7;
+    
+    --bg-app: #f1f5f9;
+    --bg-card: #ffffff;
+    --text-main: #0f172a;
+    --text-muted: #64748b;
+    --border: #cbd5e1;
+    --border-light: #e2e8f0;
+    
+    --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+    --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+    --shadow-lg: 0 10px 25px -5px rgba(0, 0, 0, 0.05), 0 8px 10px -6px rgba(0, 0, 0, 0.05);
+    --shadow-glow: 0 0 20px rgba(13, 148, 136, 0.15);
+    
+    --radius-sm: 8px;
+    --radius-md: 12px;
+    --radius-lg: 20px;
+    
+    --transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* 基本リセット & タイポグラフィ */
+* {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+}
+
+body {
+    font-family: 'Inter', 'Noto Sans JP', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    background-color: var(--bg-app);
+    color: var(--text-main);
+    line-height: 1.6;
+    -webkit-font-smoothing: antialiased;
+}
+
+.app-container {
+    max-width: 1280px;
+    margin: 0 auto;
+    padding: 24px 16px;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+}
+
+/* ヘッダー */
+.app-header {
+    margin-bottom: 32px;
+    padding: 24px;
+    background: linear-gradient(135deg, #0d9488 0%, #0f766e 100%);
+    border-radius: var(--radius-lg);
+    color: #ffffff;
+    box-shadow: var(--shadow-md);
+    position: relative;
+    overflow: hidden;
+}
+
+.app-header::before {
+    content: '';
+    position: absolute;
+    top: -50%;
+    right: -20%;
+    width: 300px;
+    height: 300px;
+    border-radius: 50%;
+    background: rgba(255, 255, 255, 0.05);
+    pointer-events: none;
+}
+
+.header-content {
+    position: relative;
+    z-index: 1;
+}
+
+.logo-area {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 8px;
+}
+
+.logo-icon {
+    width: 32px;
+    height: 32px;
+    color: #ccfbfe;
+}
+
+.app-header h1 {
+    font-size: 1.8rem;
+    font-weight: 700;
+    letter-spacing: -0.025em;
+}
+
+.subtitle {
+    font-size: 1rem;
+    color: #ccfbfe;
+    font-weight: 300;
+}
+
+/* メインレイアウト */
+.app-main {
+    display: grid;
+    grid-template-columns: 1.2fr 1fr;
+    gap: 32px;
+    align-items: start;
+    flex: 1;
+}
+
+/* カード共通スタイル */
+.card {
+    background-color: var(--bg-card);
+    border-radius: var(--radius-lg);
+    border: 1px solid var(--border-light);
+    box-shadow: var(--shadow-lg);
+    margin-bottom: 24px;
+    transition: var(--transition);
+    overflow: hidden;
+}
+
+.card:hover {
+    transform: translateY(-2px);
+    box-shadow: var(--shadow-glow), 0 12px 30px -5px rgba(0, 0, 0, 0.08);
+}
+
+.card-header {
+    padding: 20px 24px;
+    border-bottom: 1px solid var(--border-light);
+    background-color: var(--primary-light);
+}
+
+.card-header h2 {
+    font-size: 1.15rem;
+    font-weight: 700;
+    color: var(--primary-dark);
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.step-num {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 28px;
+    height: 28px;
+    background-color: var(--primary);
+    color: #ffffff;
+    border-radius: 50%;
+    font-size: 0.9rem;
+    font-weight: 700;
+}
+
+.card-body {
+    padding: 24px;
+}
+
+/* フォーム部品 */
+.form-group {
+    margin-bottom: 20px;
+}
+
+.form-group:last-child {
+    margin-bottom: 0;
+}
+
+label {
+    display: block;
+    font-weight: 600;
+    margin-bottom: 8px;
+    font-size: 0.95rem;
+    color: var(--text-main);
+}
+
+.form-control {
+    width: 100%;
+    padding: 12px 16px;
+    font-size: 0.95rem;
+    border: 1px solid var(--border);
+    border-radius: var(--radius-md);
+    background-color: #ffffff;
+    transition: var(--transition);
+    color: var(--text-main);
+}
+
+.form-control:focus {
+    outline: none;
+    border-color: var(--primary);
+    box-shadow: 0 0 0 4px rgba(13, 148, 136, 0.15);
+}
+
+select.form-control {
+    appearance: none;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='%23475569'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M19 9l-7 7-7-7'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 16px center;
+    background-size: 16px;
+    padding-right: 40px;
+}
+
+.help-text {
+    display: block;
+    margin-top: 6px;
+    font-size: 0.8rem;
+    color: var(--text-muted);
+}
+
+/* ラジオタイル（診療場所選択） */
+.radio-tile-group {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px;
+}
+
+.radio-tile-label {
+    cursor: pointer;
+}
+
+.radio-tile-input {
+    position: absolute;
+    opacity: 0;
+    width: 0;
+    height: 0;
+}
+
+.radio-tile {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 16px;
+    border: 2px solid var(--border-light);
+    border-radius: var(--radius-md);
+    background-color: #ffffff;
+    transition: var(--transition);
+    text-align: center;
+}
+
+.tile-icon {
+    margin-bottom: 8px;
+    color: var(--text-muted);
+    transition: var(--transition);
+}
+
+.tile-label {
+    font-size: 0.9rem;
+    font-weight: 600;
+    color: var(--text-muted);
+    transition: var(--transition);
+}
+
+.radio-tile-input:checked + .radio-tile {
+    border-color: var(--primary);
+    background-color: var(--primary-light);
+}
+
+.radio-tile-input:checked + .radio-tile .tile-icon,
+.radio-tile-input:checked + .radio-tile .tile-label {
+    color: var(--primary-dark);
+}
+
+/* レンジスライダー */
+.range-slider-container {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+}
+
+.range-slider {
+    flex: 1;
+    appearance: none;
+    height: 6px;
+    border-radius: 3px;
+    background: var(--border-light);
+    outline: none;
+}
+
+.range-slider::-webkit-slider-thumb {
+    appearance: none;
+    width: 20px;
+    height: 20px;
+    border-radius: 50%;
+    background: var(--primary);
+    cursor: pointer;
+    transition: var(--transition);
+    box-shadow: var(--shadow-sm);
+}
+
+.range-slider::-webkit-slider-thumb:hover {
+    transform: scale(1.15);
+    background: var(--primary-hover);
+}
+
+.range-value {
+    font-size: 1.1rem;
+    font-weight: 500;
+    min-width: 50px;
+    text-align: right;
+}
+
+.range-value strong {
+    font-size: 1.5rem;
+    color: var(--primary-dark);
+    margin-right: 2px;
+}
+
+/* チェックボックスグリッド */
+.checkbox-grid {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 12px;
+    margin-top: 8px;
+}
+
+.checkbox-item {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    cursor: pointer;
+    font-weight: 500;
+    font-size: 0.9rem;
+}
+
+.checkbox-item input[type="checkbox"] {
+    appearance: none;
+    width: 18px;
+    height: 18px;
+    border: 2px solid var(--border);
+    border-radius: 4px;
+    outline: none;
+    background-color: #ffffff;
+    cursor: pointer;
+    position: relative;
+    margin-top: 2px;
+    flex-shrink: 0;
+    transition: var(--transition);
+}
+
+.checkbox-item input[type="checkbox"]:checked {
+    border-color: var(--primary);
+    background-color: var(--primary);
+}
+
+.checkbox-item input[type="checkbox"]:checked::after {
+    content: '';
+    position: absolute;
+    top: 2px;
+    left: 5px;
+    width: 4px;
+    height: 8px;
+    border: solid white;
+    border-width: 0 2px 2px 0;
+    transform: rotate(45deg);
+}
+
+.checkbox-item span {
+    color: var(--text-main);
+}
+
+/* 入力欄単位付き */
+.input-unit-container {
+    position: relative;
+    display: flex;
+    align-items: center;
+}
+
+.input-unit-container .form-control {
+    padding-right: 60px;
+}
+
+.input-unit {
+    position: absolute;
+    right: 16px;
+    color: var(--text-muted);
+    font-size: 0.9rem;
+    pointer-events: none;
+}
+
+/* 公費パネル */
+.public-details-panel {
+    background-color: var(--primary-light);
+    border: 1px solid var(--border-light);
+    border-radius: var(--radius-md);
+    padding: 16px;
+    margin-top: 16px;
+    animation: slideDown 0.3s ease-out;
+}
+
+.public-details-panel.hidden {
+    display: none;
+}
+
+.disabled-section {
+    opacity: 0.45;
+    pointer-events: none;
+    position: relative;
+}
+
+.inline-check {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    font-weight: 500;
+    font-size: 0.9rem;
+    cursor: pointer;
+}
+
+.inline-check input[type="checkbox"] {
+    margin-top: 3px;
+}
+
+.disabled-section::after {
+    content: '在がん総適用時は包括請求のため無効';
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    background: rgba(255, 255, 255, 0.95);
+    padding: 8px 12px;
+    border-radius: var(--radius-sm);
+    font-size: 0.8rem;
+    color: var(--text-muted);
+    font-weight: 600;
+    white-space: nowrap;
+    border: 1px solid var(--border-light);
+    box-shadow: var(--shadow-sm);
+}
+
+@keyframes slideDown {
+    from {
+        opacity: 0;
+        transform: translateY(-8px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+/* 情報モーダル呼び出しボタン */
+.btn-info-modal {
+    background: none;
+    border: none;
+    color: var(--primary);
+    font-weight: 500;
+    font-size: 0.8rem;
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    cursor: pointer;
+    margin-top: 6px;
+    padding: 4px 8px;
+    border-radius: 4px;
+    transition: var(--transition);
+}
+
+.btn-info-modal:hover {
+    background-color: var(--primary-light);
+    color: var(--primary-hover);
+}
+
+/* 結果表示エリア（右側、追従） */
+.sticky-result {
+    position: sticky;
+    top: 24px;
+}
+
+.result-card {
+    border: 2px solid var(--primary-light);
+    box-shadow: 0 20px 40px -15px rgba(0, 0, 0, 0.08);
+}
+
+.result-header-summary {
+    background: linear-gradient(135deg, var(--primary-light) 0%, #ccfbfe 100%);
+    padding: 24px;
+    text-align: center;
+    border-bottom: 1px solid var(--border-light);
+}
+
+.result-header-summary h3 {
+    font-size: 1rem;
+    color: var(--primary-dark);
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    margin-bottom: 8px;
+}
+
+.total-cost-display {
+    color: var(--primary-dark);
+    display: flex;
+    align-items: baseline;
+    justify-content: center;
+    gap: 4px;
+}
+
+.total-cost-display .currency {
+    font-size: 1.2rem;
+    font-weight: 500;
+}
+
+.total-cost-display .amount {
+    font-size: 3rem;
+    font-weight: 800;
+    letter-spacing: -0.03em;
+}
+
+.total-cost-display .unit {
+    font-size: 1.2rem;
+    font-weight: 600;
+}
+
+.summary-desc {
+    font-size: 0.8rem;
+    color: var(--text-muted);
+    margin-top: 4px;
+}
+
+/* ドーナツチャート */
+.chart-container {
+    position: relative;
+    width: 180px;
+    height: 180px;
+    margin: 24px auto;
+}
+
+.donut-chart {
+    width: 100%;
+    height: 100%;
+    transform: rotate(-90deg);
+}
+
+.donut-segment {
+    transition: stroke-dasharray 0.5s ease;
+}
+
+.chart-center-label {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    text-align: center;
+    display: flex;
+    flex-direction: column;
+}
+
+.chart-center-label .label-top {
+    font-size: 0.8rem;
+    color: var(--text-muted);
+    font-weight: 500;
+}
+
+.chart-center-label .label-bottom {
+    font-size: 0.95rem;
+    font-weight: 700;
+    color: var(--text-main);
+}
+
+/* 凡例 */
+.chart-legend {
+    display: flex;
+    justify-content: center;
+    flex-wrap: wrap;
+    gap: 16px;
+    padding: 0 24px;
+    margin-bottom: 24px;
+}
+
+.legend-item {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 0.85rem;
+    font-weight: 600;
+}
+
+.legend-color {
+    width: 12px;
+    height: 12px;
+    border-radius: 3px;
+}
+
+.legend-color.medical { background-color: var(--primary); }
+.legend-color.nursing { background-color: #f59e0b; }
+.legend-color.self { background-color: #ef4444; }
+
+/* 詳細テーブル */
+.result-details {
+    padding: 0 24px;
+    margin-bottom: 24px;
+}
+
+.result-details h4 {
+    font-size: 0.9rem;
+    color: var(--text-muted);
+    margin-bottom: 12px;
+    border-bottom: 1px solid var(--border-light);
+    padding-bottom: 6px;
+}
+
+.table-details {
+    width: 100%;
+    border-collapse: collapse;
+}
+
+.table-details td {
+    padding: 10px 0;
+    font-size: 0.9rem;
+    font-weight: 500;
+    border-bottom: 1px dashed var(--border-light);
+}
+
+.table-details tr:last-child td {
+    border-bottom: none;
+    font-weight: 700;
+    font-size: 0.95rem;
+}
+
+.table-details .align-right {
+    text-align: right;
+    font-variant-numeric: tabular-nums;
+    font-weight: 600;
+}
+
+.table-details .indent-1 {
+    padding-left: 12px;
+    color: var(--text-muted);
+}
+
+.table-details .indent-2 {
+    padding-left: 24px;
+}
+
+.sub-row {
+    display: none; /* JSで動的に表示 */
+}
+
+.text-muted { color: var(--text-muted); }
+.text-success { color: var(--success); }
+
+/* アドバイスカード */
+.advice-card {
+    background-color: var(--primary-light);
+    border-radius: var(--radius-md);
+    padding: 16px;
+    margin: 0 24px 24px 24px;
+    border-left: 4px solid var(--primary);
+}
+
+.advice-title {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-weight: 700;
+    color: var(--primary-dark);
+    font-size: 0.9rem;
+    margin-bottom: 8px;
+}
+
+.advice-content {
+    font-size: 0.85rem;
+    color: var(--primary-dark);
+    line-height: 1.5;
+}
+
+.advice-content ul {
+    margin-left: 16px;
+    margin-top: 4px;
+}
+
+/* ボタン */
+.btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    padding: 14px 24px;
+    font-size: 1rem;
+    font-weight: 700;
+    border: none;
+    border-radius: var(--radius-md);
+    cursor: pointer;
+    transition: var(--transition);
+}
+
+.btn-primary {
+    background-color: var(--primary);
+    color: #ffffff;
+    box-shadow: 0 4px 12px rgba(13, 148, 136, 0.2);
+}
+
+.btn-primary:hover {
+    background-color: var(--primary-hover);
+    transform: translateY(-1px);
+    box-shadow: 0 6px 16px rgba(13, 148, 136, 0.3);
+}
+
+.btn-block {
+    display: flex;
+    width: 100%;
+}
+
+.action-buttons {
+    padding: 0 24px 24px 24px;
+}
+
+/* モーダル */
+.modal {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(15, 23, 42, 0.6);
+    backdrop-filter: blur(4px);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 1000;
+    opacity: 0;
+    pointer-events: none;
+    transition: var(--transition);
+}
+
+.modal.open {
+    opacity: 1;
+    pointer-events: auto;
+}
+
+.modal-content {
+    background-color: #ffffff;
+    border-radius: var(--radius-lg);
+    width: 90%;
+    max-width: 680px;
+    max-height: 85vh;
+    overflow-y: auto;
+    box-shadow: var(--shadow-lg);
+    transform: translateY(20px);
+    transition: var(--transition);
+}
+
+.modal.open .modal-content {
+    transform: translateY(0);
+}
+
+.modal-header {
+    padding: 20px 24px;
+    border-bottom: 1px solid var(--border-light);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    background-color: var(--primary-light);
+}
+
+.modal-header h3 {
+    color: var(--primary-dark);
+    font-size: 1.2rem;
+}
+
+.btn-close-modal {
+    background: none;
+    border: none;
+    font-size: 1.8rem;
+    color: var(--text-muted);
+    cursor: pointer;
+    line-height: 1;
+    padding: 4px;
+    border-radius: 50%;
+    transition: var(--transition);
+}
+
+.btn-close-modal:hover {
+    color: var(--text-main);
+    background-color: var(--border-light);
+}
+
+.modal-body {
+    padding: 24px;
+}
+
+.table-modal {
+    width: 100%;
+    border-collapse: collapse;
+    margin-top: 12px;
+    font-size: 0.85rem;
+}
+
+.table-modal th,
+.table-modal td {
+    padding: 10px 12px;
+    border: 1px solid var(--border-light);
+    text-align: left;
+}
+
+.table-modal th {
+    background-color: var(--bg-app);
+    font-weight: 700;
+}
+
+.modal-note {
+    font-size: 0.8rem;
+    color: var(--text-muted);
+    margin-top: 10px;
+}
+
+/* フッター */
+.app-footer {
+    margin-top: 40px;
+    padding-top: 24px;
+    border-top: 1px solid var(--border-light);
+    text-align: center;
+    font-size: 0.8rem;
+    color: var(--text-muted);
+}
+
+.app-footer p {
+    margin-bottom: 6px;
+}
+
+.app-footer .copyright {
+    margin-top: 16px;
+    font-size: 0.75rem;
+}
+
+/* 印刷用一時表示エリア（通常画面では非表示） */
+.print-only-container {
+    display: none;
+}
+
+/* レスポンシブ設計 */
+@media (max-width: 1024px) {
+    .app-main {
+        grid-template-columns: 1fr;
+        gap: 24px;
+    }
+    
+    .sticky-result {
+        position: static;
+    }
+}
+
+@media (max-width: 640px) {
+    .app-container {
+        padding: 12px 8px;
+    }
+    
+    .app-header {
+        padding: 16px;
+        border-radius: var(--radius-md);
+    }
+    
+    .app-header h1 {
+        font-size: 1.4rem;
+    }
+    
+    .subtitle {
+        font-size: 0.85rem;
+    }
+    
+    .card-body {
+        padding: 16px;
+    }
+    
+    .radio-tile-group {
+        grid-template-columns: 1fr;
+        gap: 12px;
+    }
+    
+    .total-cost-display .amount {
+        font-size: 2.2rem;
+    }
+}
+
+/* 印刷スタイル */
+@media print {
+    /* 画面表示用の全要素を非表示 */
+    body {
+        background-color: #ffffff;
+        color: #000000;
+        font-size: 12pt;
+    }
+    
+    .app-container {
+        display: none !important;
+    }
+    
+    .modal {
+        display: none !important;
+    }
+    
+    /* 印刷用レイアウトを有効化 */
+    .print-only-container {
+        display: block !important;
+        font-family: 'Noto Sans JP', sans-serif;
+        color: #333333;
+        padding: 20px;
+    }
+    
+    .print-header {
+        border-bottom: 3px double #0d9488;
+        padding-bottom: 12px;
+        margin-bottom: 20px;
+        display: flex;
+        justify-content: space-between;
+        align-items: flex-end;
+    }
+    
+    .print-header h2 {
+        font-size: 20pt;
+        color: #0d9488;
+        margin: 0;
+    }
+    
+    .print-date {
+        font-size: 10pt;
+        color: #666;
+    }
+    
+    .print-section {
+        margin-bottom: 24px;
+    }
+    
+    .print-section h3 {
+        font-size: 12pt;
+        border-left: 4px solid #0d9488;
+        padding-left: 8px;
+        margin-bottom: 12px;
+        color: #0f766e;
+    }
+    
+    .print-table {
+        width: 100%;
+        border-collapse: collapse;
+        margin-bottom: 10px;
+    }
+    
+    .print-table th,
+    .print-table td {
+        border: 1px solid #ddd;
+        padding: 8px 12px;
+        font-size: 10pt;
+        text-align: left;
+    }
+    
+    .print-table th {
+        background-color: #f5f5f5;
+        font-weight: bold;
+        width: 25%;
+    }
+    
+    .print-table.details th {
+        width: auto;
+    }
+    
+    .print-table.details td.align-right {
+        text-align: right;
+        font-weight: bold;
+    }
+    
+    .print-total-box {
+        background-color: #f0fdfa;
+        border: 2px solid #0d9488;
+        border-radius: 8px;
+        padding: 16px;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 8px;
+    }
+    
+    .print-total-box .label {
+        font-size: 14pt;
+        font-weight: bold;
+        color: #0f766e;
+    }
+    
+    .print-total-box .value {
+        font-size: 22pt;
+        font-weight: 800;
+        color: #0f766e;
+    }
+    
+    .print-section .note {
+        font-size: 8pt;
+        color: #666;
+    }
+    
+    .print-advice-box {
+        background-color: #f9f9f9;
+        border-left: 4px solid #f59e0b;
+        padding: 12px;
+        font-size: 10pt;
+        line-height: 1.5;
+    }
+    
+    .print-memo-area {
+        margin-top: 30px;
+        page-break-inside: avoid;
+    }
+    
+    .print-memo-area h3 {
+        font-size: 12pt;
+        margin-bottom: 12px;
+    }
+    
+    .memo-line {
+        border-bottom: 1px dashed #ccc;
+        height: 30px;
+        margin-bottom: 8px;
+    }
+    
+    .print-footer {
+        margin-top: 40px;
+        border-top: 1px solid #ddd;
+        padding-top: 12px;
+        font-size: 8pt;
+        color: #666;
+        text-align: center;
+        page-break-inside: avoid;
+    }
+    
+    .print-footer p {
+        margin-bottom: 6px;
+    }
+}

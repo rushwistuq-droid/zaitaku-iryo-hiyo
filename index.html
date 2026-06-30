@@ -1,0 +1,623 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>在宅医療（訪問診療）費用シミュレーター</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Noto+Sans+JP:wght@300;400;500;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <div class="app-container">
+        <!-- ヘッダー -->
+        <header class="app-header">
+            <div class="header-content">
+                <div class="logo-area">
+                    <svg class="logo-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/>
+                        <polyline points="9 22 9 12 15 12 15 22"/>
+                    </svg>
+                    <h1>在宅医療費用シミュレーター</h1>
+                </div>
+                <p class="subtitle">患者さんとご家族のための、わかりやすい費用説明・計算ツール</p>
+            </div>
+        </header>
+
+        <!-- メインコンテンツ -->
+        <main class="app-main">
+            <!-- 入力フォームエリア（左） -->
+            <section class="form-section">
+                <div class="card form-card">
+                    <div class="card-header">
+                        <h2><span class="step-num">1</span>基本情報の設定</h2>
+                    </div>
+                    <div class="card-body">
+                        <!-- 年齢・負担割合 -->
+                        <div class="form-group">
+                            <label for="age-select">患者様の年齢区分</label>
+                            <select id="age-select" class="form-control">
+                                <option value="75">75歳以上（後期高齢者）</option>
+                                <option value="70">70歳〜74歳</option>
+                                <option value="69" selected>70歳未満</option>
+                            </select>
+                        </div>
+
+                        <!-- 医療保険の負担割合（年齢により選択肢が変わる、または自動判定） -->
+                        <div class="form-group">
+                            <label for="copay-ratio">医療保険の自己負担割合</label>
+                            <select id="copay-ratio" class="form-control">
+                                <!-- JSで動的にオプションを制御・初期値設定 -->
+                                <option value="0.1">1割負担</option>
+                                <option value="0.2">2割負担</option>
+                                <option value="0.3" selected>3割負担</option>
+                            </select>
+                            <span class="help-text">※保険証に記載されている負担割合を選択してください。</span>
+                        </div>
+
+                        <!-- 所得区分（高額療養費の計算用） -->
+                        <div class="form-group">
+                            <label for="income-level">世帯の所得区分・年収目安</label>
+                            <select id="income-level" class="form-control">
+                                <!-- JSで年齢区分に応じて動的に切り替え -->
+                            </select>
+                            <button type="button" class="btn-info-modal" data-target="modal-high-cost">
+                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
+                                所得区分について詳しく
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="card form-card">
+                    <div class="card-header">
+                        <h2><span class="step-num">2</span>訪問診療プラン</h2>
+                    </div>
+                    <div class="card-body">
+                        <!-- 診療場所 -->
+                        <div class="form-group">
+                            <label>診療を受ける場所</label>
+                            <div class="radio-tile-group">
+                                <label class="radio-tile-label">
+                                    <input type="radio" name="location" value="home" checked class="radio-tile-input">
+                                    <div class="radio-tile">
+                                        <div class="tile-icon">
+                                            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"/></svg>
+                                        </div>
+                                        <div class="tile-label">自宅・戸建て</div>
+                                    </div>
+                                </label>
+                                <label class="radio-tile-label">
+                                    <input type="radio" name="location" value="facility" class="radio-tile-input">
+                                    <div class="radio-tile">
+                                        <div class="tile-icon">
+                                            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><line x1="9" y1="3" x2="9" y2="21"/><line x1="15" y1="3" x2="15" y2="21"/><line x1="3" y1="9" x2="21" y2="9"/><line x1="3" y1="15" x2="21" y2="15"/></svg>
+                                        </div>
+                                        <div class="tile-label">高齢者住宅・施設</div>
+                                    </div>
+                                </label>
+                            </div>
+                        </div>
+
+                        <!-- 診療所種別（2026年度改定） -->
+                        <div class="form-group">
+                            <label for="clinic-type">担当する医療機関の種別</label>
+                            <select id="clinic-type" class="form-control">
+                                <option value="kinou-kyouka" selected>機能強化型在宅療養支援診療所（単独型・大臣定め） ※最高評価</option>
+                                <option value="zashin-ippan">在宅療養支援診療所（従来型）</option>
+                                <option value="other-clinic">一般の診療所（在宅療養支援以外）</option>
+                            </select>
+                            <span class="help-text">※2026年改定で機能強化型と従来型で在医総管・在がん総の点数が異なります。</span>
+                        </div>
+
+                        <div class="form-group">
+                            <label class="checkbox-item inline-check">
+                                <input type="checkbox" id="clinic-severe-20" checked>
+                                <span>担当クリニックは「月2回以上診療の重症患者2割要件」を満たしている</span>
+                            </label>
+                            <span class="help-text">※2026年改定で、クリニック全体の患者構成により月2回区分の算定可否が決まります。満たさない場合は月1回区分になります。</span>
+                        </div>
+
+                        <div class="form-group">
+                            <label for="patient-severe">患者さんの状態（別表8-2 / 8-3）</label>
+                            <select id="patient-severe" class="form-control">
+                                <option value="no" selected>一般（該当なし）</option>
+                                <option value="houkatsu">別表8-3（包括的支援加算対象）</option>
+                                <option value="severe">別表8-2（重症患者）</option>
+                            </select>
+                            <span class="help-text">※8-2は最高区分の管理料、8-3は月2回区分＋包括的支援加算150点。いずれも月2回以上訪問時に適用されます。</span>
+                        </div>
+
+                        <!-- 在宅がん医療総合診療料（在がん総）の適用 -->
+                        <div class="form-group">
+                            <label for="apply-cancer-care">在宅がん医療総合診療料（在がん総）の適用</label>
+                            <select id="apply-cancer-care" class="form-control">
+                                <option value="no" selected>適用しない（通常の出来高＋管理料）</option>
+                                <option value="yes">適用する（週単位の包括請求・末期がん等）</option>
+                            </select>
+                            <span class="help-text">※末期悪性腫瘍等の患者に対する週単位の包括請求システムです。</span>
+                        </div>
+
+                        <div id="cancer-care-details" class="public-details-panel hidden">
+                            <div class="form-group">
+                                <label for="cancer-care-weeks">算定する週数（月あたり）</label>
+                                <div class="range-slider-container">
+                                    <input type="range" id="cancer-care-weeks" min="1" max="5" value="4" class="range-slider">
+                                    <span class="range-value"><strong id="cancer-care-weeks-val">4</strong>週分</span>
+                                </div>
+                                <span class="help-text">※通常は1ヶ月あたり4週分（または5週分）算定します。</span>
+                            </div>
+                        </div>
+
+                        <div id="visit-plan-controls">
+                            <!-- 訪問頻度 -->
+                            <div class="form-group">
+                                <label for="visit-frequency">定期訪問の頻度（月あたり）</label>
+                                <div class="range-slider-container">
+                                    <input type="range" id="visit-frequency" min="1" max="12" value="2" class="range-slider">
+                                    <span class="range-value"><strong id="visit-frequency-val">2</strong>回</span>
+                                </div>
+                                <span class="help-text">※月12回超の平均訪問（過去3ヶ月）には減算が適用される場合があります。</span>
+                            </div>
+
+                            <!-- 往診回数 -->
+                            <div class="form-group">
+                                <label for="emergency-visits">緊急往診の回数（月あたり）</label>
+                                <div class="range-slider-container">
+                                    <input type="range" id="emergency-visits" min="0" max="8" value="0" class="range-slider">
+                                    <span class="range-value"><strong id="emergency-visits-val">0</strong>回</span>
+                                </div>
+                                <span class="help-text">※体調急変等により、定期訪問日以外に緊急で医師を呼んだ回数です。</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="card form-card">
+                    <div class="card-header">
+                        <h2><span class="step-num">3</span>処置・加算・お薬</h2>
+                    </div>
+                    <div class="card-body">
+                        <!-- 在宅療養指導管理料（排他算定） -->
+                        <div class="form-group">
+                            <label for="home-guidance-type">主たる在宅療養指導管理料（月1回・1件のみ算定）</label>
+                            <select id="home-guidance-type" class="form-control">
+                                <option value="none" selected>なし</option>
+                                <option value="oxygen">在宅酸素療法指導管理料（2,500点/月）</option>
+                                <option value="injection">在宅自己注射指導管理料（650点/月）</option>
+                                <option value="catheter">在宅自己導尿指導管理料（1,800点/月）</option>
+                                <option value="cancer">在宅悪性腫瘍患者指導管理料（1,500点/月）</option>
+                                <option value="wound">在宅寝たきり患者処置指導管理料（1,050点/月）※褥瘡等</option>
+                            </select>
+                            <span class="help-text">※同一月・同一医療機関では「主たる指導管理料」1件のみ算定可（厚労省告示・通則）。複数の管理を行う場合は点数最高の1件。在がん総適用時は包括のため選択不可。</span>
+                        </div>
+
+                        <!-- お薬代 -->
+                        <div class="form-group">
+                            <label for="has-prescription">お薬（処方箋）の発行</label>
+                            <select id="has-prescription" class="form-control">
+                                <option value="yes" selected>あり（院外処方箋を発行する）</option>
+                                <option value="no">なし</option>
+                            </select>
+                        </div>
+                        <div class="form-group" id="medication-cost-group">
+                            <label for="medication-cost" id="medication-cost-label">月々の概算お薬代（薬局支払分・3割負担時の自己負担額）</label>
+                            <div class="input-unit-container">
+                                <input type="number" id="medication-cost" class="form-control" value="3000" min="0" step="500">
+                                <span class="input-unit">円程度</span>
+                            </div>
+                            <span class="help-text">※選択中の負担割合での薬局自己負担額を入力してください。1割・2割に変更すると、10割換算で自動的に金額が再計算されます。</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="card form-card">
+                    <div class="card-header">
+                        <h2><span class="step-num">4</span>介護保険と公費負担制度</h2>
+                    </div>
+                    <div class="card-body">
+                        <!-- 介護保険の利用 -->
+                        <div class="form-group">
+                            <label for="nursing-insurance">介護保険の要介護・要支援認定</label>
+                            <select id="nursing-insurance" class="form-control">
+                                <option value="yes" selected>受けている（介護保険を利用する）</option>
+                                <option value="no">受けていない（または利用しない）</option>
+                            </select>
+                            <span class="help-text">※認定を受けている場合、医師による「居宅療養管理指導」が算定され、介護保険の自己負担が発生します。</span>
+                        </div>
+
+                        <div id="nursing-insurance-details">
+                            <div class="form-group">
+                                <label for="nursing-ratio">介護保険の自己負担割合</label>
+                                <select id="nursing-ratio" class="form-control">
+                                    <option value="0.1" selected>1割負担</option>
+                                    <option value="0.2">2割負担</option>
+                                    <option value="0.3">3割負担</option>
+                                </select>
+                            </div>
+                        </div>
+
+                        <!-- 公費負担医療 -->
+                        <div class="form-group">
+                            <label for="public-expense">利用している公費負担医療・制度</label>
+                            <select id="public-expense" class="form-control">
+                                <option value="none" selected>なし（医療保険のみ）</option>
+                                <option value="welfare">生活保護（医療扶助・介護扶助）</option>
+                                <option value="nanbyou">指定難病（医療費助成制度）</option>
+                                <option value="jiritsu">自立支援医療（精神通院等）</option>
+                                <option value="local-subsidy">地方自治体の医療費助成（重度障害者など）</option>
+                            </select>
+                        </div>
+
+                        <!-- 各公費に応じた追加項目 -->
+                        <div id="public-nanbyou-details" class="public-details-panel hidden">
+                            <div class="form-group">
+                                <label for="nanbyou-limit">指定難病の月額自己負担上限額</label>
+                                <select id="nanbyou-limit" class="form-control">
+                                    <option value="0">0円 (生活保護など)</option>
+                                    <option value="2500">2,500円 (低所得Ⅰ)</option>
+                                    <option value="5000">5,000円 (低所得Ⅱ)</option>
+                                    <option value="10000" selected>10,000円 (一般所得Ⅰ)</option>
+                                    <option value="20000">20,000円 (一般所得Ⅱ)</option>
+                                    <option value="30000">30,000円 (上位所得)</option>
+                                </select>
+                            </div>
+                            <div class="checkbox-item">
+                                <input type="checkbox" id="nanbyou-ventilator" value="yes">
+                                <label for="nanbyou-ventilator">人工呼吸器などを装着している（上限1,000円）</label>
+                            </div>
+                        </div>
+
+                        <div id="public-jiritsu-details" class="public-details-panel hidden">
+                            <div class="form-group">
+                                <label for="jiritsu-limit">自立支援医療の月額自己負担上限額</label>
+                                <select id="jiritsu-limit" class="form-control">
+                                    <option value="0">0円 (生活保護受給世帯)</option>
+                                    <option value="2500">2,500円 (低所得1: 非課税・年金少)</option>
+                                    <option value="5000" selected>5,000円 (低所得2: 非課税)</option>
+                                    <option value="5000-mid">5,000円 (中間所得1: 課税・重度継続)</option>
+                                    <option value="10000">10,000円 (中間所得2: 課税・重度継続)</option>
+                                    <option value="20000">20,000円 (一定所得以上: 重度継続)</option>
+                                    <option value="none">上限なし (原則1割負担のみ)</option>
+                                </select>
+                            </div>
+                        </div>
+
+                        <div id="public-local-details" class="public-details-panel hidden">
+                            <div class="form-group">
+                                <label for="local-subsidy-type">助成の内容（自己負担分）</label>
+                                <select id="local-subsidy-type" class="form-control">
+                                    <option value="zero" selected>医療・お薬の自己負担なし（0円）</option>
+                                    <option value="fixed-500">1回あたり500円のみ負担（医療・お薬）</option>
+                                    <option value="fixed-1000">月額上限1,000円まで負担（医療・お薬）</option>
+                                </select>
+                            </div>
+                            <label class="checkbox-item inline-check">
+                                <input type="checkbox" id="local-nursing-subsidy">
+                                <span>介護保険（居宅療養管理指導）も助成対象</span>
+                            </label>
+                        </div>
+
+                        <!-- 障害者手帳・認定 -->
+                        <div class="form-group">
+                            <label for="disability-cert">身体障害者手帳・障害者認定</label>
+                            <select id="disability-cert" class="form-control">
+                                <option value="no" selected>該当なし</option>
+                                <option value="yes">身体障害者手帳をお持ち（または障害者認定あり）</option>
+                            </select>
+                            <span class="help-text">※自治体の重度障害者医療費助成等と併用する場合があります。公費負担制度と重複しないようご注意ください。</span>
+                        </div>
+
+                        <div id="disability-details" class="public-details-panel hidden">
+                            <div class="form-group">
+                                <label for="disability-grade">手帳の等級・助成の目安</label>
+                                <select id="disability-grade" class="form-control">
+                                    <option value="grade1-2">1級・2級（自己負担なしの助成が多い）</option>
+                                    <option value="grade3">3級（月額上限1,000円程度の助成が多い）</option>
+                                    <option value="general">その他（自治体により異なる）</option>
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+            </section>
+
+            <!-- 計算結果エリア（右） -->
+            <section class="result-section">
+                <div class="card result-card sticky-result">
+                    <div class="result-header-summary">
+                        <h3>月額自己負担額の目安</h3>
+                        <div class="total-cost-display">
+                            <span class="currency">約</span>
+                            <span id="total-patient-cost" class="amount">0</span>
+                            <span class="unit">円 / 月</span>
+                        </div>
+                        <p class="summary-desc">（医療保険・介護保険・お薬代の自己負担合計）</p>
+                    </div>
+
+                    <!-- 視覚的グラフ（ドーナツチャート） -->
+                    <div class="chart-container">
+                        <svg class="donut-chart" viewBox="0 0 100 100">
+                            <!-- 背景円 -->
+                            <circle class="donut-ring" cx="50" cy="50" r="40" fill="transparent" stroke="#e6e8eb" stroke-width="12"></circle>
+                            <!-- 医療保険負担分 -->
+                            <circle id="donut-segment-medical" class="donut-segment" cx="50" cy="50" r="40" fill="transparent" stroke="#0d9488" stroke-width="12" stroke-dasharray="0 251.2" stroke-dashoffset="0"></circle>
+                            <!-- 介護保険負担分 -->
+                            <circle id="donut-segment-nursing" class="donut-segment" cx="50" cy="50" r="40" fill="transparent" stroke="#f59e0b" stroke-width="12" stroke-dasharray="0 251.2" stroke-dashoffset="0"></circle>
+                            <!-- 自費分 -->
+                            <circle id="donut-segment-self" class="donut-segment" cx="50" cy="50" r="40" fill="transparent" stroke="#ef4444" stroke-width="12" stroke-dasharray="0 251.2" stroke-dashoffset="0"></circle>
+                        </svg>
+                        <div class="chart-center-label">
+                            <span class="label-top">自己負担</span>
+                            <span class="label-bottom">内訳割合</span>
+                        </div>
+                    </div>
+
+                    <!-- グラフ凡例 -->
+                    <div class="chart-legend">
+                        <div class="legend-item"><span class="legend-color medical"></span>医療保険: <span id="legend-val-medical">0円</span></div>
+                        <div class="legend-item"><span class="legend-color nursing"></span>介護保険: <span id="legend-val-nursing">0円</span></div>
+                        <div class="legend-item"><span class="legend-color self"></span>お薬代: <span id="legend-val-self">0円</span></div>
+                    </div>
+
+                    <!-- 詳細内訳アコーディオン -->
+                    <div class="result-details">
+                        <h4>費用シミュレーションの内訳</h4>
+                        <table class="table-details">
+                            <tbody>
+                                <tr>
+                                    <td>総医療費 (10割)</td>
+                                    <td class="align-right"><span id="table-total-medical-10">0</span>円</td>
+                                </tr>
+                                <tr>
+                                    <td class="indent-1">↳ 医療保険自己負担額 <span id="table-medical-ratio-label">(3割)</span></td>
+                                    <td class="align-right"><span id="table-medical-copay">0</span>円</td>
+                                </tr>
+                                <tr class="sub-row" id="row-high-cost-applied">
+                                    <td class="indent-2 text-muted">※高額療養費による軽減額</td>
+                                    <td class="align-right text-success"><span id="table-medical-limit-applied">-0</span>円</td>
+                                </tr>
+                                <tr class="sub-row" id="row-public-applied">
+                                    <td class="indent-2 text-muted">※公費・助成制度による軽減額</td>
+                                    <td class="align-right text-success"><span id="table-public-limit-applied">-0</span>円</td>
+                                </tr>
+                                <tr id="row-nursing-detail">
+                                    <td>介護保険自己負担額 (居宅管理)</td>
+                                    <td class="align-right"><span id="table-nursing-copay">0</span>円</td>
+                                </tr>
+                                <tr>
+                                    <td>お薬代 (自己負担額)</td>
+                                    <td class="align-right"><span id="table-medication-copay">0</span>円</td>
+                                </tr>
+                                <tr class="sub-row">
+                                    <td class="indent-2 text-muted" id="table-guidance-note">在宅療養指導管理料</td>
+                                    <td class="align-right text-muted">—</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <!-- 説明・提案カード -->
+                    <div class="advice-card">
+                        <div class="advice-title">
+                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+                            <span>説明のポイント</span>
+                        </div>
+                        <div id="advice-content" class="advice-content">
+                            <!-- 動的にアドバイスを流し込む -->
+                        </div>
+                    </div>
+
+                    <!-- 操作エリア -->
+                    <div class="action-buttons">
+                        <button type="button" class="btn btn-primary btn-block" id="btn-print">
+                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg>
+                            結果を印刷 / PDF保存
+                        </button>
+                    </div>
+                </div>
+            </section>
+        </main>
+
+        <!-- モーダル（所得区分・高額療養費説明） -->
+        <div id="modal-high-cost" class="modal">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h3>高額療養費制度と所得区分について</h3>
+                    <button type="button" class="btn-close-modal">&times;</button>
+                </div>
+                <div class="modal-body">
+                    <h4>70歳以上・75歳以上（後期高齢者）の区分</h4>
+                    <table class="table-modal">
+                        <thead>
+                            <tr>
+                                <th>区分</th>
+                                <th>年収目安</th>
+                                <th>外来上限(個人)</th>
+                                <th>世帯上限(外来+入院)</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td>現役並みⅢ</td>
+                                <td>約1,160万円〜</td>
+                                <td>44,400円</td>
+                                <td>252,600円 + α</td>
+                            </tr>
+                            <tr>
+                                <td>現役並みⅡ</td>
+                                <td>約770万〜1,160万円</td>
+                                <td>44,400円</td>
+                                <td>167,400円 + α</td>
+                            </tr>
+                            <tr>
+                                <td>現役並みⅠ</td>
+                                <td>約370万〜770万円</td>
+                                <td>44,400円</td>
+                                <td>80,100円 + α</td>
+                            </tr>
+                            <tr>
+                                <td>一般</td>
+                                <td>約156万〜370万円</td>
+                                <td>18,000円</td>
+                                <td>57,600円</td>
+                            </tr>
+                            <tr>
+                                <td>低所得Ⅱ(非課税)</td>
+                                <td>世帯全員非課税</td>
+                                <td>8,000円</td>
+                                <td>24,600円</td>
+                            </tr>
+                            <tr>
+                                <td>低所得Ⅰ(非課税)</td>
+                                <td>年金収入等 80万円以下</td>
+                                <td>8,000円</td>
+                                <td>15,000円</td>
+                            </tr>
+                        </tbody>
+                    </table>
+
+                    <h4 style="margin-top: 20px;">70歳未満の区分</h4>
+                    <table class="table-modal">
+                        <thead>
+                            <tr>
+                                <th>区分</th>
+                                <th>標準報酬月額 / 所得目安</th>
+                                <th>世帯上限(月額)</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td>区分ア</td>
+                                <td>83万円以上</td>
+                                <td>252,600円 + α</td>
+                            </tr>
+                            <tr>
+                                <td>区分イ</td>
+                                <td>53万〜79万円</td>
+                                <td>167,400円 + α</td>
+                            </tr>
+                            <tr>
+                                <td>区分ウ</td>
+                                <td>28万〜50万円</td>
+                                <td>80,100円 + α</td>
+                            </tr>
+                            <tr>
+                                <td>区分エ</td>
+                                <td>26万円以下</td>
+                                <td>57,600円</td>
+                            </tr>
+                            <tr>
+                                <td>区分オ</td>
+                                <td>住民税非課税世帯</td>
+                                <td>35,400円</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                    <p class="modal-note">※「+ α」の部分は、(総医療費 - 基準額) × 1% の計算式で加算されます。</p>
+                </div>
+            </div>
+        </div>
+
+        <footer class="app-footer">
+            <p>※本シミュレーターは令和8年度（2026年6月施行）診療報酬改定に基づく概算です。</p>
+            <p>加算・減算、時間外往診、在宅医療充実体制加算、地域区分等により実際の請求額は異なります。交通費等の保険外費用は含みません。</p>
+            <p class="copyright">&copy; 2026 在宅医療費用説明システム</p>
+        </footer>
+    </div>
+
+    <!-- 印刷用特別レイアウト（画面には表示されず、印刷時のみ適用される） -->
+    <div class="print-only-container">
+        <div class="print-header">
+            <h2>在宅医療（訪問診療）費用シミュレーション結果</h2>
+            <p class="print-date">作成日: <span id="print-date-val"></span></p>
+        </div>
+        <div class="print-body">
+            <div class="print-section">
+                <h3>■ シミュレーション条件</h3>
+                <table class="print-table">
+                    <tr>
+                        <th>年齢区分</th><td id="print-age"></td>
+                        <th>自己負担割合</th><td id="print-copay"></td>
+                    </tr>
+                    <tr>
+                        <th>診療場所</th><td id="print-location"></td>
+                        <th>医療機関</th><td id="print-clinic"></td>
+                    </tr>
+                    <tr>
+                        <th>所得区分</th><td id="print-income"></td>
+                        <th>公費負担</th><td id="print-public"></td>
+                    </tr>
+                    <tr>
+                        <th>定期訪問頻度</th><td id="print-frequency"></td>
+                        <th>緊急往診回数</th><td id="print-emergency"></td>
+                    </tr>
+                    <tr>
+                        <th>介護保険利用</th><td id="print-nursing"></td>
+                        <th></th><td></td>
+                    </tr>
+                </table>
+            </div>
+
+            <div class="print-section">
+                <h3>■ 月額自己負担額の目安（概算）</h3>
+                <div class="print-total-box">
+                    <span class="label">月々の自己負担額 合計目安:</span>
+                    <span class="value"><span id="print-total-amount">0</span> 円 / 月</span>
+                </div>
+                <p class="note">※医療保険、介護保険、お薬代の自己負担合計です（保険外交通費等は含みません）。</p>
+            </div>
+
+            <div class="print-section">
+                <h3>■ 費用の内訳</h3>
+                <table class="print-table details">
+                    <thead>
+                        <tr>
+                            <th>項目</th>
+                            <th>詳細</th>
+                            <th>金額 (自己負担分)</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td>医療保険適用分</td>
+                            <td id="print-detail-medical-desc">訪問診療料、在宅医学管理料など</td>
+                            <td class="align-right"><span id="print-detail-medical-val">0</span> 円</td>
+                        </tr>
+                        <tr>
+                            <td>介護保険適用分</td>
+                            <td>居宅療養管理指導費 (医師による管理・指導)</td>
+                            <td class="align-right"><span id="print-detail-nursing-val">0</span> 円</td>
+                        </tr>
+                        <tr>
+                            <td>お薬代 (自己負担)</td>
+                            <td>調剤薬局でのお薬代目安</td>
+                            <td class="align-right"><span id="print-detail-medication-val">0</span> 円</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+
+            <div class="print-section">
+                <h3>■ 説明とアドバイス</h3>
+                <div id="print-advice-box" class="print-advice-box"></div>
+            </div>
+
+            <div class="print-memo-area">
+                <h3>■ メモ・特記事項</h3>
+                <div class="memo-line"></div>
+                <div class="memo-line"></div>
+                <div class="memo-line"></div>
+            </div>
+        </div>
+        <div class="print-footer">
+            <p>※本シミュレーションは目安であり、実際の請求額は診療行為や加算項目、薬局での処方内容によって異なります。</p>
+            <p>運営医療機関名: ___________________________   お問い合わせ先: ___________________________</p>
+        </div>
+    </div>
+
+    <script src="app.js"></script>
+</body>
+</html>

@@ -11,6 +11,16 @@ const FEE_2026 = {
         'zashin-ippan': 650,
         'other-clinic': 325
     },
+    nightHolidayAddon: {
+        'kinou-kyouka': 1700,
+        'zashin-ippan': 1500,
+        'other-clinic': 405
+    },
+    lateNightAddon: {
+        'kinou-kyouka': 2700,
+        'zashin-ippan': 2500,
+        'other-clinic': 485
+    },
     prescription: 68,
     noPrescriptionBonus: 300,
     management: {
@@ -48,15 +58,33 @@ const FEE_2026 = {
         specialNursingInstruction: 100,
         visitDx1: 11,
         visitDx2: 9,
-        emergencyInfoRenkei: 200
+        emergencyInfoRenkei: 200,
+        pharmacistJoint: 300,
+        terminalCare: { tier3500: 3500, tier4500: 4500, tier5500: 5500, tier6500: 6500 },
+        miokuri: 3000
     }
 };
 
 const CLINIC_SECTION = { 'kinou-kyouka': 'section1', 'zashin-ippan': 'section2', 'other-clinic': 'section3' };
 
-function getEmergencyVisitPoints(clinicType) {
+function getEmergencyVisitPoints(clinicType, timeBand = 'day') {
     const addon = FEE_2026.emergencyAddon[clinicType] || FEE_2026.emergencyAddon['other-clinic'];
-    return FEE_2026.houseCall + addon + FEE_2026.reExam;
+    let pts = FEE_2026.houseCall + addon + FEE_2026.reExam;
+    if (timeBand === 'nightHoliday') {
+        pts += FEE_2026.nightHolidayAddon[clinicType] || FEE_2026.nightHolidayAddon['other-clinic'];
+    } else if (timeBand === 'lateNight') {
+        pts += FEE_2026.lateNightAddon[clinicType] || FEE_2026.lateNightAddon['other-clinic'];
+    }
+    return pts;
+}
+
+function getEmergencyVisitBreakdown(clinicType, emergencyVisits, nightHolidayVisits, lateNightVisits) {
+    const nh = Math.min(nightHolidayVisits, emergencyVisits);
+    const ln = Math.min(lateNightVisits, Math.max(0, emergencyVisits - nh));
+    const regular = Math.max(0, emergencyVisits - nh - ln);
+    return regular * getEmergencyVisitPoints(clinicType, 'day')
+        + nh * getEmergencyVisitPoints(clinicType, 'nightHoliday')
+        + ln * getEmergencyVisitPoints(clinicType, 'lateNight');
 }
 
 function getHighCostLimit(age, incomeKey, combinedMedicalTotal10) {
@@ -128,6 +156,11 @@ function calculateAddonPoints(p) {
     if (p.emergencyVisits > 0 && f.emergencyInfoRenkei) {
         push(p.emergencyVisits * A.emergencyInfoRenkei);
     }
+    if (!p.applyCancerCare && p.location === 'home' && f.pharmacistJoint) push(A.pharmacistJoint);
+    if (!p.applyCancerCare && f.terminalCare && f.terminalCare !== 'none') {
+        push(A.terminalCare[f.terminalCare]);
+    }
+    if (!p.applyCancerCare && f.miokuri) push(A.miokuri);
     return total;
 }
 
@@ -141,7 +174,12 @@ function calcPoints(p) {
     let pts = FEE_2026.visit[loc] * p.visitFreq;
     pts += getManagementPoints(p.location, section, p.visitFreq, p.patientStatus, p.clinicMeets20);
     pts += (FEE_2026.guidance[p.homeGuidance] || 0);
-    pts += p.emergencyVisits * getEmergencyVisitPoints(p.clinicType);
+    pts += getEmergencyVisitBreakdown(
+        p.clinicType,
+        p.emergencyVisits || 0,
+        p.nightHolidayVisits || 0,
+        p.lateNightVisits || 0
+    );
     pts += p.hasPrescription ? FEE_2026.prescription : FEE_2026.noPrescriptionBonus;
     pts += calculateAddonPoints(p);
     return pts;
@@ -294,6 +332,28 @@ const tests = [
             ratio: 0.1, useNursing: false, medTotal10: 0, publicExpense: 'none', age: '75', incomeKey: 'o70-general',
             addonFlags: { clinicTier: 'jujitsu', infoRenkei: true } },
         expectPts: 1650 * 4 + 100 + 300
+    },
+    {
+        name: '夜間・休日往診1回・機能強化型（1545+1700）',
+        p: { location: 'home', clinicType: 'kinou-kyouka', visitFreq: 2, patientStatus: 'no', clinicMeets20: true,
+            homeGuidance: 'none', hasPrescription: true, emergencyVisits: 1, nightHolidayVisits: 1, lateNightVisits: 0,
+            ratio: 0.3, useNursing: false, medTotal10: 0, publicExpense: 'none', age: '69', incomeKey: 'u70-c' },
+        expectPts: 890 * 2 + 4085 + 68 + 1545 + 1700
+    },
+    {
+        name: '深夜往診1回・一般診療所（1120+485）',
+        p: { location: 'home', clinicType: 'other-clinic', visitFreq: 2, patientStatus: 'no', clinicMeets20: true,
+            homeGuidance: 'none', hasPrescription: true, emergencyVisits: 1, nightHolidayVisits: 0, lateNightVisits: 1,
+            ratio: 0.3, useNursing: false, medTotal10: 0, publicExpense: 'none', age: '69', incomeKey: 'u70-c' },
+        expectPts: 890 * 2 + Math.round(2735 * 0.8) + 68 + 1120 + 485
+    },
+    {
+        name: '加算: ターミナルケア+看取り+薬剤師同時指導',
+        p: { location: 'home', clinicType: 'zashin-ippan', visitFreq: 2, patientStatus: 'no', clinicMeets20: true,
+            homeGuidance: 'none', hasPrescription: true, emergencyVisits: 0, ratio: 0.1, useNursing: false,
+            medTotal10: 0, publicExpense: 'none', age: '75', incomeKey: 'o70-general',
+            addonFlags: { terminalCare: 'tier4500', miokuri: true, pharmacistJoint: true } },
+        expectPts: 890 * 2 + 3685 + 68 + 4500 + 3000 + 300
     }
 ];
 

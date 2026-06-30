@@ -13,6 +13,13 @@ document.addEventListener('DOMContentLoaded', () => {
     const visitFrequencyVal = document.getElementById('visit-frequency-val');
     const emergencyVisitsSlider = document.getElementById('emergency-visits');
     const emergencyVisitsVal = document.getElementById('emergency-visits-val');
+    const emergencyNightHolidaySlider = document.getElementById('emergency-night-holiday');
+    const emergencyNightHolidayVal = document.getElementById('emergency-night-holiday-val');
+    const emergencyLateNightSlider = document.getElementById('emergency-late-night');
+    const emergencyLateNightVal = document.getElementById('emergency-late-night-val');
+    const emergencyTimeAddonsGroup = document.getElementById('emergency-time-addons-group');
+    const addonPharmacistRow = document.getElementById('addon-pharmacist-row');
+    const addonTerminalGroup = document.getElementById('addon-terminal-group');
     const homeGuidanceSelect = document.getElementById('home-guidance-type');
 
     const hasPrescriptionSelect = document.getElementById('has-prescription');
@@ -81,6 +88,16 @@ document.addEventListener('DOMContentLoaded', () => {
             'zashin-ippan': 650,
             'other-clinic': 325
         },
+        nightHolidayAddon: {
+            'kinou-kyouka': 1700,
+            'zashin-ippan': 1500,
+            'other-clinic': 405
+        },
+        lateNightAddon: {
+            'kinou-kyouka': 2700,
+            'zashin-ippan': 2500,
+            'other-clinic': 485
+        },
         prescription: 68,
         noPrescriptionBonus: 300,
         management: {
@@ -123,7 +140,10 @@ document.addEventListener('DOMContentLoaded', () => {
             specialNursingInstruction: 100,
             visitDx1: 11,
             visitDx2: 9,
-            emergencyInfoRenkei: 200
+            emergencyInfoRenkei: 200,
+            pharmacistJoint: 300,
+            terminalCare: { tier3500: 3500, tier4500: 4500, tier5500: 5500, tier6500: 6500 },
+            miokuri: 3000
         }
     };
 
@@ -223,9 +243,29 @@ document.addEventListener('DOMContentLoaded', () => {
         return { medical: m, medication: med, nursing: n, deduction: total - cap };
     }
 
-    function getEmergencyVisitPoints(clinicType) {
+    function getEmergencyVisitPoints(clinicType, timeBand = 'day') {
         const addon = FEE_2026.emergencyAddon[clinicType] || FEE_2026.emergencyAddon['other-clinic'];
-        return FEE_2026.houseCall + addon + FEE_2026.reExam;
+        let points = FEE_2026.houseCall + addon + FEE_2026.reExam;
+        if (timeBand === 'nightHoliday') {
+            points += FEE_2026.nightHolidayAddon[clinicType] || FEE_2026.nightHolidayAddon['other-clinic'];
+        } else if (timeBand === 'lateNight') {
+            points += FEE_2026.lateNightAddon[clinicType] || FEE_2026.lateNightAddon['other-clinic'];
+        }
+        return points;
+    }
+
+    function getEmergencyVisitBreakdown(clinicType, emergencyVisits, nightHolidayVisits, lateNightVisits) {
+        const nh = Math.min(nightHolidayVisits, emergencyVisits);
+        const ln = Math.min(lateNightVisits, Math.max(0, emergencyVisits - nh));
+        const regular = Math.max(0, emergencyVisits - nh - ln);
+        return {
+            regular,
+            nightHoliday: nh,
+            lateNight: ln,
+            total: regular * getEmergencyVisitPoints(clinicType, 'day')
+                + nh * getEmergencyVisitPoints(clinicType, 'nightHoliday')
+                + ln * getEmergencyVisitPoints(clinicType, 'lateNight')
+        };
     }
 
     function getAddonFlags() {
@@ -240,12 +280,15 @@ document.addEventListener('DOMContentLoaded', () => {
             continuingCare: !!document.getElementById('addon-continuing-care')?.checked,
             emergencyInfoRenkei: !!document.getElementById('addon-emergency-info')?.checked,
             dxAddon: document.getElementById('addon-dx')?.value || 'none',
-            autoFrequentVisit: document.getElementById('addon-auto-frequent')?.checked !== false
+            autoFrequentVisit: document.getElementById('addon-auto-frequent')?.checked !== false,
+            pharmacistJoint: !!document.getElementById('addon-pharmacist-joint')?.checked,
+            terminalCare: document.getElementById('addon-terminal-care')?.value || 'none',
+            miokuri: !!document.getElementById('addon-miokuri')?.checked
         };
     }
 
     function calculateAddonPoints(params) {
-        const { applyCancerCare, clinicType, visitFreq, emergencyVisits, addonFlags } = params;
+        const { applyCancerCare, clinicType, visitFreq, emergencyVisits, addonFlags, location } = params;
         const A = FEE_2026.addons;
         const items = [];
         let total = 0;
@@ -294,6 +337,27 @@ document.addEventListener('DOMContentLoaded', () => {
             push('往診時医療情報連携加算', emergencyVisits * A.emergencyInfoRenkei);
         }
 
+        if (!applyCancerCare && location === 'home' && addonFlags.pharmacistJoint) {
+            push('訪問診療薬剤師同時指導料', A.pharmacistJoint);
+        }
+
+        if (!applyCancerCare && addonFlags.terminalCare !== 'none') {
+            const tcPts = A.terminalCare[addonFlags.terminalCare];
+            if (tcPts) {
+                const tcLabels = {
+                    tier3500: '在宅ターミナルケア加算（その他の診療所等・3,500点）',
+                    tier4500: '在宅ターミナルケア加算（在宅療養支援診療所等・4,500点）',
+                    tier5500: '在宅ターミナルケア加算（大臣定め・病床なし・5,500点）',
+                    tier6500: '在宅ターミナルケア加算（大臣定め・病床あり・6,500点）'
+                };
+                push(tcLabels[addonFlags.terminalCare], tcPts);
+            }
+        }
+
+        if (!applyCancerCare && addonFlags.miokuri) {
+            push('看取り加算', A.miokuri);
+        }
+
         return { total, items };
     }
 
@@ -325,8 +389,8 @@ document.addEventListener('DOMContentLoaded', () => {
     function calculateMedicalPoints(params) {
         const {
             applyCancerCare, clinicType, hasPrescription, cancerCareWeeks,
-            location, visitFreq, emergencyVisits, homeGuidanceType,
-            patientStatus, clinicMeets20, addonFlags
+            location, visitFreq, emergencyVisits, nightHolidayVisits, lateNightVisits,
+            homeGuidanceType, patientStatus, clinicMeets20, addonFlags
         } = params;
 
         const section = CLINIC_SECTION[clinicType] || 'section2';
@@ -339,7 +403,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 : FEE_2026.cancerCare.section2;
             breakdown.cancer = (hasPrescription ? rates.withRx : rates.withoutRx) * cancerCareWeeks;
             const addonResult = calculateAddonPoints({
-                applyCancerCare, clinicType, visitFreq, emergencyVisits: 0, addonFlags
+                applyCancerCare, clinicType, visitFreq, emergencyVisits: 0, addonFlags, location
             });
             breakdown.addons = addonResult.total;
             addonItems = addonResult.items;
@@ -351,7 +415,9 @@ document.addEventListener('DOMContentLoaded', () => {
         breakdown.management = getManagementPoints(location, section, visitFreq, patientStatus, clinicMeets20);
 
         if (emergencyVisits > 0) {
-            breakdown.emergency = emergencyVisits * getEmergencyVisitPoints(clinicType);
+            breakdown.emergency = getEmergencyVisitBreakdown(
+                clinicType, emergencyVisits, nightHolidayVisits, lateNightVisits
+            ).total;
         }
 
         const guidance = FEE_2026.guidance[homeGuidanceType] || FEE_2026.guidance.none;
@@ -364,7 +430,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         const addonResult = calculateAddonPoints({
-            applyCancerCare, clinicType, visitFreq, emergencyVisits, addonFlags
+            applyCancerCare, clinicType, visitFreq, emergencyVisits, addonFlags, location
         });
         breakdown.addons = addonResult.total;
         addonItems = addonResult.items;
@@ -553,6 +619,40 @@ document.addEventListener('DOMContentLoaded', () => {
         if (addonContinuingCareRow) {
             addonContinuingCareRow.style.display = isOtherClinic && !applyCancer ? 'flex' : 'none';
         }
+        const location = document.querySelector('input[name="location"]:checked')?.value || 'home';
+        if (addonPharmacistRow) {
+            addonPharmacistRow.style.display = !applyCancer && location === 'home' ? 'flex' : 'none';
+        }
+        if (addonTerminalGroup) {
+            addonTerminalGroup.classList.toggle('hidden', applyCancer);
+        }
+    }
+
+    function syncEmergencyTimeSliders() {
+        const max = parseInt(emergencyVisitsSlider.value, 10);
+        if (emergencyTimeAddonsGroup) {
+            emergencyTimeAddonsGroup.classList.toggle('hidden', max === 0);
+        }
+        if (emergencyNightHolidaySlider) {
+            emergencyNightHolidaySlider.max = max;
+            if (parseInt(emergencyNightHolidaySlider.value, 10) > max) {
+                emergencyNightHolidaySlider.value = max;
+            }
+        }
+        if (emergencyLateNightSlider) {
+            const nh = parseInt(emergencyNightHolidaySlider?.value || 0, 10);
+            const lateMax = Math.max(0, max - nh);
+            emergencyLateNightSlider.max = lateMax;
+            if (parseInt(emergencyLateNightSlider.value, 10) > lateMax) {
+                emergencyLateNightSlider.value = lateMax;
+            }
+        }
+        if (emergencyNightHolidayVal) {
+            emergencyNightHolidayVal.textContent = emergencyNightHolidaySlider?.value || '0';
+        }
+        if (emergencyLateNightVal) {
+            emergencyLateNightVal.textContent = emergencyLateNightSlider?.value || '0';
+        }
     }
 
     function toggleCancerCareUI() {
@@ -561,6 +661,8 @@ document.addEventListener('DOMContentLoaded', () => {
         if (visitPlanControls) visitPlanControls.classList.toggle('disabled-section', applyCancer);
         visitFrequencySlider.disabled = applyCancer;
         emergencyVisitsSlider.disabled = applyCancer;
+        if (emergencyNightHolidaySlider) emergencyNightHolidaySlider.disabled = applyCancer;
+        if (emergencyLateNightSlider) emergencyLateNightSlider.disabled = applyCancer;
         homeGuidanceSelect.disabled = applyCancer;
         toggleAddonPanels();
     }
@@ -575,6 +677,8 @@ document.addEventListener('DOMContentLoaded', () => {
         const cancerCareWeeks = parseInt(cancerCareWeeksSlider.value, 10);
         const visitFreq = parseInt(visitFrequencySlider.value, 10);
         const emergencyVisits = parseInt(emergencyVisitsSlider.value, 10);
+        const nightHolidayVisits = parseInt(emergencyNightHolidaySlider?.value || 0, 10);
+        const lateNightVisits = parseInt(emergencyLateNightSlider?.value || 0, 10);
         const homeGuidanceType = homeGuidanceSelect.value;
         const patientStatus = patientSevereSelect ? patientSevereSelect.value : 'no';
         const clinicMeets20 = !clinicSevere20Check || clinicSevere20Check.checked;
@@ -592,8 +696,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
         const { totalPoints, breakdown, addonItems, guidanceLabel } = calculateMedicalPoints({
             applyCancerCare, clinicType, hasPrescription, cancerCareWeeks,
-            location, visitFreq, emergencyVisits, homeGuidanceType,
-            patientStatus, clinicMeets20, addonFlags
+            location, visitFreq, emergencyVisits, nightHolidayVisits, lateNightVisits,
+            homeGuidanceType, patientStatus, clinicMeets20, addonFlags
         });
 
         const medicalTotal10 = totalPoints * 10;
@@ -760,7 +864,19 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         if (emergencyVisits > 0) {
-            items.push('<strong>緊急往診</strong>: 往診料720点＋緊急往診加算（機能強化型750点・在支診650点・一般325点）＋再診料75点の概算です。夜間・休日加算は含みません。');
+            const nh = Math.min(nightHolidayVisits, emergencyVisits);
+            const ln = Math.min(lateNightVisits, Math.max(0, emergencyVisits - nh));
+            const regular = Math.max(0, emergencyVisits - nh - ln);
+            const nhPts = FEE_2026.nightHolidayAddon[clinicType] || FEE_2026.nightHolidayAddon['other-clinic'];
+            const lnPts = FEE_2026.lateNightAddon[clinicType] || FEE_2026.lateNightAddon['other-clinic'];
+            let emergencyNote = '<strong>緊急往診</strong>: 往診料720点＋緊急往診加算＋再診料75点の概算です。';
+            if (nh > 0 || ln > 0) {
+                emergencyNote += ` 内訳: 通常${regular}回`;
+                if (nh > 0) emergencyNote += `、夜間・休日${nh}回（+${nhPts}点/回）`;
+                if (ln > 0) emergencyNote += `、深夜${ln}回（+${lnPts}点/回）`;
+                emergencyNote += '。';
+            }
+            items.push(emergencyNote);
         }
 
         if (addonItems && addonItems.length > 0) {
@@ -842,7 +958,8 @@ document.addEventListener('DOMContentLoaded', () => {
         const addonIds = [
             'addon-info-renkei', 'addon-data-submit', 'addon-early-transition',
             'addon-online-mgmt', 'addon-nursing-instruction', 'addon-special-nursing',
-            'addon-continuing-care', 'addon-emergency-info', 'addon-auto-frequent'
+            'addon-continuing-care', 'addon-emergency-info', 'addon-auto-frequent',
+            'addon-pharmacist-joint', 'addon-miokuri'
         ];
         addonIds.forEach(id => {
             const el = document.getElementById(id);
@@ -853,6 +970,8 @@ document.addEventListener('DOMContentLoaded', () => {
         });
         const dxSelect = document.getElementById('addon-dx');
         if (dxSelect) dxSelect.addEventListener('change', updateCalculations);
+        const terminalSelect = document.getElementById('addon-terminal-care');
+        if (terminalSelect) terminalSelect.addEventListener('change', updateCalculations);
     }
 
     ageSelect.addEventListener('change', () => {
@@ -870,7 +989,10 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
     incomeLevelSelect.addEventListener('change', updateCalculations);
-    document.querySelectorAll('input[name="location"]').forEach(r => r.addEventListener('change', updateCalculations));
+    document.querySelectorAll('input[name="location"]').forEach(r => r.addEventListener('change', () => {
+        toggleAddonPanels();
+        updateCalculations();
+    }));
     clinicTypeSelect.addEventListener('change', () => {
         toggleAddonPanels();
         updateCalculations();
@@ -895,8 +1017,22 @@ document.addEventListener('DOMContentLoaded', () => {
 
     emergencyVisitsSlider.addEventListener('input', () => {
         emergencyVisitsVal.textContent = emergencyVisitsSlider.value;
+        syncEmergencyTimeSliders();
         updateCalculations();
     });
+
+    if (emergencyNightHolidaySlider) {
+        emergencyNightHolidaySlider.addEventListener('input', () => {
+            syncEmergencyTimeSliders();
+            updateCalculations();
+        });
+    }
+    if (emergencyLateNightSlider) {
+        emergencyLateNightSlider.addEventListener('input', () => {
+            syncEmergencyTimeSliders();
+            updateCalculations();
+        });
+    }
 
     homeGuidanceSelect.addEventListener('change', updateCalculations);
 
@@ -959,6 +1095,7 @@ document.addEventListener('DOMContentLoaded', () => {
     updateMedicationLabel();
     toggleCancerCareUI();
     bindAddonInputs();
+    syncEmergencyTimeSliders();
     medicationTotal10Cache = getMedicationTotal10();
     updateCalculations();
 });

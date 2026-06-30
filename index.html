@@ -168,7 +168,25 @@
                                     <input type="range" id="emergency-visits" min="0" max="8" value="0" class="range-slider">
                                     <span class="range-value"><strong id="emergency-visits-val">0</strong>回</span>
                                 </div>
-                                <span class="help-text">※体調急変等により、定期訪問日以外に緊急で医師を呼んだ回数です（往診料＋緊急往診加算＋再診料の概算。夜間・休日は別途加算）。</span>
+                                <span class="help-text">※体調急変等により、定期訪問日以外に緊急で医師を呼んだ回数です（往診料＋緊急往診加算＋再診料の概算）。</span>
+                            </div>
+
+                            <div id="emergency-time-addons-group" class="public-details-panel hidden" style="margin-top: 12px;">
+                                <div class="form-group">
+                                    <label for="emergency-night-holiday">うち夜間・休日往診（18時〜8時・休日）</label>
+                                    <div class="range-slider-container">
+                                        <input type="range" id="emergency-night-holiday" min="0" max="0" value="0" class="range-slider">
+                                        <span class="range-value"><strong id="emergency-night-holiday-val">0</strong>回</span>
+                                    </div>
+                                </div>
+                                <div class="form-group">
+                                    <label for="emergency-late-night">うち深夜往診（22時〜6時）</label>
+                                    <div class="range-slider-container">
+                                        <input type="range" id="emergency-late-night" min="0" max="0" value="0" class="range-slider">
+                                        <span class="range-value"><strong id="emergency-late-night-val">0</strong>回</span>
+                                    </div>
+                                    <span class="help-text">※深夜往診は夜間・休日往診と重複しない回数で入力してください。クリニック区分により加算額が異なります（機能強化型+1,700/+2,700点、在支診+1,500/+2,500点、一般+405/+485点）。</span>
+                                </div>
                             </div>
                         </div>
                     </div>
@@ -293,8 +311,28 @@
                                 <input type="checkbox" id="addon-auto-frequent" checked>
                                 <span>頻回訪問加算を自動算定（+800点・月4回以上訪問時）</span>
                             </label>
+                            <label class="checkbox-item" id="addon-pharmacist-row" style="display:none">
+                                <input type="checkbox" id="addon-pharmacist-joint">
+                                <span>訪問診療薬剤師同時指導料（+300点・6月に1回・自宅・在医総管のみ）</span>
+                            </label>
                         </div>
-                        <span class="help-text">※包括的支援加算（+150点）は患者状態「別表8-3」選択時に自動反映済みです。夜間・休日往診加算、在宅ターミナルケア加算等は個別事情によるため含みません。</span>
+
+                        <div id="addon-terminal-group" class="form-group" style="margin-top: 16px;">
+                            <label for="addon-terminal-care">在宅ターミナルケア加算（看取り期の月・1回のみ）</label>
+                            <select id="addon-terminal-care" class="form-control">
+                                <option value="none" selected>なし</option>
+                                <option value="tier6500">6,500点（大臣定め・病床ありの在支診・病院）</option>
+                                <option value="tier5500">5,500点（大臣定め・病床なしの在支診・病院）</option>
+                                <option value="tier4500">4,500点（その他の在宅療養支援診療所・病院）</option>
+                                <option value="tier3500">3,500点（その他の診療所等）</option>
+                            </select>
+                            <label class="checkbox-item" style="margin-top: 10px;">
+                                <input type="checkbox" id="addon-miokuri">
+                                <span>看取り加算（+3,000点・死亡日の往診・在宅看取り時）</span>
+                            </label>
+                            <span class="help-text">※死亡日および死亡日前14日以内に2回以上の往診・訪問診療等の要件を満たす場合に算定。ターミナルケア加算と看取り加算は死亡月に併算可能です。</span>
+                        </div>
+                        <span class="help-text">※包括的支援加算（+150点）は患者状態「別表8-3」選択時に自動反映済みです。交通費等の保険外費用は含みません。</span>
                     </div>
                 </div>
 

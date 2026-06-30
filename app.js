@@ -52,6 +52,10 @@ document.addEventListener('DOMContentLoaded', () => {
     const tableMedicationCopay = document.getElementById('table-medication-copay');
     const tableMedicalRatioLabel = document.getElementById('table-medical-ratio-label');
     const tableGuidanceNote = document.getElementById('table-guidance-note');
+    const rowAddonsDetail = document.getElementById('row-addons-detail');
+    const tableAddonsNote = document.getElementById('table-addons-note');
+    const tableAddonsPoints = document.getElementById('table-addons-points');
+    const addonContinuingCareRow = document.getElementById('addon-continuing-care-row');
 
     const donutMedical = document.getElementById('donut-segment-medical');
     const donutNursing = document.getElementById('donut-segment-nursing');
@@ -105,7 +109,22 @@ document.addEventListener('DOMContentLoaded', () => {
         },
         nursingGuide: { home: 298, facility: 286 },
         houkatsuAddon: 150,
-        section3ManageRatio: 0.8
+        section3ManageRatio: 0.8,
+        addons: {
+            clinicTier: { jujitsu: 800, jisseki1: 300, jisseki2: 200 },
+            cancerJujitsu: 300,
+            infoRenkei: 100,
+            dataSubmit: 50,
+            earlyTransition: 100,
+            onlineMgmt: 100,
+            frequentVisitFirst: 800,
+            continuingCare: 216,
+            nursingInstruction: 300,
+            specialNursingInstruction: 100,
+            visitDx1: 11,
+            visitDx2: 9,
+            emergencyInfoRenkei: 200
+        }
     };
 
     const CLINIC_SECTION = {
@@ -209,6 +228,75 @@ document.addEventListener('DOMContentLoaded', () => {
         return FEE_2026.houseCall + addon + FEE_2026.reExam;
     }
 
+    function getAddonFlags() {
+        return {
+            clinicTier: document.querySelector('input[name="clinic-tier"]:checked')?.value || 'none',
+            infoRenkei: !!document.getElementById('addon-info-renkei')?.checked,
+            dataSubmit: !!document.getElementById('addon-data-submit')?.checked,
+            earlyTransition: !!document.getElementById('addon-early-transition')?.checked,
+            onlineMgmt: !!document.getElementById('addon-online-mgmt')?.checked,
+            nursingInstruction: !!document.getElementById('addon-nursing-instruction')?.checked,
+            specialNursingInstruction: !!document.getElementById('addon-special-nursing')?.checked,
+            continuingCare: !!document.getElementById('addon-continuing-care')?.checked,
+            emergencyInfoRenkei: !!document.getElementById('addon-emergency-info')?.checked,
+            dxAddon: document.getElementById('addon-dx')?.value || 'none',
+            autoFrequentVisit: document.getElementById('addon-auto-frequent')?.checked !== false
+        };
+    }
+
+    function calculateAddonPoints(params) {
+        const { applyCancerCare, clinicType, visitFreq, emergencyVisits, addonFlags } = params;
+        const A = FEE_2026.addons;
+        const items = [];
+        let total = 0;
+
+        const push = (label, points) => {
+            if (!points || points <= 0) return;
+            items.push({ label, points });
+            total += points;
+        };
+
+        if (!applyCancerCare) {
+            const tierPts = A.clinicTier[addonFlags.clinicTier];
+            if (tierPts) {
+                const tierLabels = {
+                    jujitsu: '在宅医療充実体制加算（在医総管）',
+                    jisseki1: '在宅療養実績加算1（在医総管）',
+                    jisseki2: '在宅療養実績加算2（在医総管）'
+                };
+                push(tierLabels[addonFlags.clinicTier], tierPts);
+            }
+            if (addonFlags.infoRenkei) push('在宅医療情報連携加算', A.infoRenkei);
+            if (addonFlags.dataSubmit) push('在宅データ提出加算', A.dataSubmit);
+            if (addonFlags.earlyTransition) push('在宅移行早期加算', A.earlyTransition);
+            if (addonFlags.onlineMgmt) push('オンライン在宅管理料', A.onlineMgmt);
+            if (visitFreq >= 4 && addonFlags.autoFrequentVisit) {
+                push('頻回訪問加算（初回・月4回以上）', A.frequentVisitFirst);
+            }
+            if (addonFlags.continuingCare && clinicType === 'other-clinic') {
+                push('継続診療加算', A.continuingCare);
+            }
+        } else {
+            if (addonFlags.infoRenkei) push('在宅医療情報連携加算（在がん総）', A.infoRenkei);
+            if (addonFlags.dataSubmit) push('在宅データ提出加算（在がん総）', A.dataSubmit);
+            if (addonFlags.clinicTier === 'jujitsu') {
+                push('在宅医療充実体制加算（在がん総）', A.cancerJujitsu);
+            }
+        }
+
+        if (addonFlags.nursingInstruction) push('訪問看護指示料', A.nursingInstruction);
+        if (addonFlags.specialNursingInstruction) push('特別訪問看護指示加算', A.specialNursingInstruction);
+
+        if (addonFlags.dxAddon === '1') push('在宅医療DX情報活用加算1', A.visitDx1);
+        else if (addonFlags.dxAddon === '2') push('在宅医療DX情報活用加算2', A.visitDx2);
+
+        if (emergencyVisits > 0 && addonFlags.emergencyInfoRenkei) {
+            push('往診時医療情報連携加算', emergencyVisits * A.emergencyInfoRenkei);
+        }
+
+        return { total, items };
+    }
+
     function getManagementPoints(location, section, visitFreq, patientStatus, clinicMeets20) {
         const locKey = location === 'home' ? 'home' : 'facility';
         const rates = FEE_2026.management[locKey][section];
@@ -238,18 +326,25 @@ document.addEventListener('DOMContentLoaded', () => {
         const {
             applyCancerCare, clinicType, hasPrescription, cancerCareWeeks,
             location, visitFreq, emergencyVisits, homeGuidanceType,
-            patientStatus, clinicMeets20
+            patientStatus, clinicMeets20, addonFlags
         } = params;
 
         const section = CLINIC_SECTION[clinicType] || 'section2';
-        const breakdown = { visit: 0, management: 0, guidance: 0, emergency: 0, prescription: 0, cancer: 0 };
+        const breakdown = { visit: 0, management: 0, guidance: 0, emergency: 0, prescription: 0, cancer: 0, addons: 0 };
+        let addonItems = [];
 
         if (applyCancerCare) {
             const rates = section === 'section1'
                 ? FEE_2026.cancerCare.section1
                 : FEE_2026.cancerCare.section2;
             breakdown.cancer = (hasPrescription ? rates.withRx : rates.withoutRx) * cancerCareWeeks;
-            return { totalPoints: breakdown.cancer, breakdown, guidanceLabel: '在がん総に包括' };
+            const addonResult = calculateAddonPoints({
+                applyCancerCare, clinicType, visitFreq, emergencyVisits: 0, addonFlags
+            });
+            breakdown.addons = addonResult.total;
+            addonItems = addonResult.items;
+            const totalPoints = breakdown.cancer + breakdown.addons;
+            return { totalPoints, breakdown, addonItems, guidanceLabel: '在がん総に包括' };
         }
 
         breakdown.visit = FEE_2026.visit[location === 'home' ? 'home' : 'facility'] * visitFreq;
@@ -268,10 +363,16 @@ document.addEventListener('DOMContentLoaded', () => {
             breakdown.prescription = FEE_2026.noPrescriptionBonus;
         }
 
-        const totalPoints = breakdown.visit + breakdown.management + breakdown.guidance
-            + breakdown.emergency + breakdown.prescription;
+        const addonResult = calculateAddonPoints({
+            applyCancerCare, clinicType, visitFreq, emergencyVisits, addonFlags
+        });
+        breakdown.addons = addonResult.total;
+        addonItems = addonResult.items;
 
-        return { totalPoints, breakdown, guidanceLabel: guidance.label };
+        const totalPoints = breakdown.visit + breakdown.management + breakdown.guidance
+            + breakdown.emergency + breakdown.prescription + breakdown.addons;
+
+        return { totalPoints, breakdown, addonItems, guidanceLabel: guidance.label };
     }
 
     function applyPublicExpense(params) {
@@ -432,6 +533,28 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
+    function toggleAddonPanels() {
+        const applyCancer = applyCancerCareSelect.value === 'yes';
+        const isOtherClinic = clinicTypeSelect.value === 'other-clinic';
+        const addonNormalPanel = document.getElementById('addon-normal-panel');
+        const addonCancerNote = document.getElementById('addon-cancer-note');
+        if (addonNormalPanel) addonNormalPanel.classList.toggle('hidden', applyCancer);
+        if (addonCancerNote) addonCancerNote.classList.toggle('hidden', !applyCancer);
+        document.querySelectorAll('.tier-normal-only').forEach(el => {
+            el.style.display = applyCancer ? 'none' : 'flex';
+        });
+        if (applyCancer) {
+            const selected = document.querySelector('input[name="clinic-tier"]:checked');
+            if (selected && (selected.value === 'jisseki1' || selected.value === 'jisseki2')) {
+                const noneRadio = document.querySelector('input[name="clinic-tier"][value="none"]');
+                if (noneRadio) noneRadio.checked = true;
+            }
+        }
+        if (addonContinuingCareRow) {
+            addonContinuingCareRow.style.display = isOtherClinic && !applyCancer ? 'flex' : 'none';
+        }
+    }
+
     function toggleCancerCareUI() {
         const applyCancer = applyCancerCareSelect.value === 'yes';
         cancerCareDetailsPanel.classList.toggle('hidden', !applyCancer);
@@ -439,6 +562,7 @@ document.addEventListener('DOMContentLoaded', () => {
         visitFrequencySlider.disabled = applyCancer;
         emergencyVisitsSlider.disabled = applyCancer;
         homeGuidanceSelect.disabled = applyCancer;
+        toggleAddonPanels();
     }
 
     function updateCalculations() {
@@ -464,11 +588,12 @@ document.addEventListener('DOMContentLoaded', () => {
         const publicExpense = publicExpenseSelect.value;
         const hasDisabilityCert = disabilityCertSelect && disabilityCertSelect.value === 'yes';
         const disabilityGrade = disabilityGradeSelect ? disabilityGradeSelect.value : 'general';
+        const addonFlags = getAddonFlags();
 
-        const { totalPoints, breakdown, guidanceLabel } = calculateMedicalPoints({
+        const { totalPoints, breakdown, addonItems, guidanceLabel } = calculateMedicalPoints({
             applyCancerCare, clinicType, hasPrescription, cancerCareWeeks,
             location, visitFreq, emergencyVisits, homeGuidanceType,
-            patientStatus, clinicMeets20
+            patientStatus, clinicMeets20, addonFlags
         });
 
         const medicalTotal10 = totalPoints * 10;
@@ -508,6 +633,15 @@ document.addEventListener('DOMContentLoaded', () => {
                 : `${guidanceLabel}（主たる1件のみ算定）`;
         }
 
+        if (rowAddonsDetail && tableAddonsNote && tableAddonsPoints) {
+            const hasAddons = breakdown.addons > 0 && addonItems.length > 0;
+            rowAddonsDetail.style.display = hasAddons ? 'table-row' : 'none';
+            if (hasAddons) {
+                tableAddonsNote.textContent = `診療加算（${addonItems.length}件）`;
+                tableAddonsPoints.textContent = `${breakdown.addons.toLocaleString()}点`;
+            }
+        }
+
         rowHighCostApplied.style.display = result.isHighCostApplied ? 'table-row' : 'none';
         if (result.isHighCostApplied) {
             tableMedicalLimitApplied.textContent = `-${Math.round(result.highCostDeduction).toLocaleString()}`;
@@ -524,14 +658,15 @@ document.addEventListener('DOMContentLoaded', () => {
         updateDonutChart(result.medical, result.nursing, result.medication);
         updateAdvice({
             age, useNursing, publicExpense, hasPrescription, visitFreq, emergencyVisits,
-            applyCancerCare, hasDisabilityCert, homeGuidanceType, clinicMeets20, patientStatus, clinicType
+            applyCancerCare, hasDisabilityCert, homeGuidanceType, clinicMeets20, patientStatus, clinicType,
+            addonItems, addonFlags
         });
         updatePrintData({
             age, medicalRatio, location, incomeKey, visitFreq, emergencyVisits,
             useNursing, publicExpense, finalPatientTotal,
             medicalCopay: result.medical, nursingCopay: result.nursing,
             medicationCopay: result.medication, applyCancerCare, cancerCareWeeks,
-            hasDisabilityCert, guidanceLabel, clinicType, patientStatus
+            hasDisabilityCert, guidanceLabel, clinicType, patientStatus, addonItems
         });
     }
 
@@ -567,7 +702,8 @@ document.addEventListener('DOMContentLoaded', () => {
     function updateAdvice(ctx) {
         const {
             age, useNursing, publicExpense, hasPrescription, visitFreq, emergencyVisits,
-            applyCancerCare, hasDisabilityCert, homeGuidanceType, clinicMeets20, patientStatus, clinicType
+            applyCancerCare, hasDisabilityCert, homeGuidanceType, clinicMeets20, patientStatus, clinicType,
+            addonItems, addonFlags
         } = ctx;
         const isSenior = age === '75' || age === '70';
         const items = [];
@@ -627,6 +763,17 @@ document.addEventListener('DOMContentLoaded', () => {
             items.push('<strong>緊急往診</strong>: 往診料720点＋緊急往診加算（機能強化型750点・在支診650点・一般325点）＋再診料75点の概算です。夜間・休日加算は含みません。');
         }
 
+        if (addonItems && addonItems.length > 0) {
+            const addonSummary = addonItems.map(a => `${a.label}（${a.points.toLocaleString()}点）`).join('、');
+            items.push(`<strong>選択中の加算</strong>: ${addonSummary}`);
+        } else {
+            items.push('<strong>診療加算</strong>: クリニックの届出・算定状況により加算が加わります。「クリニックの加算・評価」から該当項目を選択してください。');
+        }
+
+        if (visitFreq >= 4 && addonFlags?.autoFrequentVisit && !applyCancerCare) {
+            items.push('<strong>頻回訪問加算</strong>: 月4回以上の訪問で初回800点が自動加算されています（別表8-2等の対象患者）。');
+        }
+
         adviceContent.innerHTML = `<ul>${items.map(t => `<li>${t}</li>`).join('')}</ul>`;
     }
 
@@ -635,7 +782,8 @@ document.addEventListener('DOMContentLoaded', () => {
             age, medicalRatio, location, incomeKey, visitFreq, emergencyVisits,
             useNursing, publicExpense, finalPatientTotal,
             medicalCopay, nursingCopay, medicationCopay,
-            applyCancerCare, cancerCareWeeks, hasDisabilityCert, guidanceLabel, clinicType
+            applyCancerCare, cancerCareWeeks, hasDisabilityCert, guidanceLabel, clinicType,
+            addonItems
         } = data;
 
         const now = new Date();
@@ -682,7 +830,29 @@ document.addEventListener('DOMContentLoaded', () => {
         document.getElementById('print-detail-medical-desc').textContent = applyCancerCare
             ? `在宅がん医療総合診療料（${cancerCareWeeks}週）`
             : `訪問診療＋在宅管理料＋${guidanceLabel}`;
+        const addonText = addonItems && addonItems.length > 0
+            ? addonItems.map(a => `${a.label} ${a.points}点`).join(' / ')
+            : 'なし';
+        const printAddonEl = document.getElementById('print-addons');
+        if (printAddonEl) printAddonEl.textContent = addonText;
         document.getElementById('print-advice-box').innerHTML = adviceContent.innerHTML;
+    }
+
+    function bindAddonInputs() {
+        const addonIds = [
+            'addon-info-renkei', 'addon-data-submit', 'addon-early-transition',
+            'addon-online-mgmt', 'addon-nursing-instruction', 'addon-special-nursing',
+            'addon-continuing-care', 'addon-emergency-info', 'addon-auto-frequent'
+        ];
+        addonIds.forEach(id => {
+            const el = document.getElementById(id);
+            if (el) el.addEventListener('change', updateCalculations);
+        });
+        document.querySelectorAll('input[name="clinic-tier"]').forEach(r => {
+            r.addEventListener('change', updateCalculations);
+        });
+        const dxSelect = document.getElementById('addon-dx');
+        if (dxSelect) dxSelect.addEventListener('change', updateCalculations);
     }
 
     ageSelect.addEventListener('change', () => {
@@ -701,7 +871,10 @@ document.addEventListener('DOMContentLoaded', () => {
 
     incomeLevelSelect.addEventListener('change', updateCalculations);
     document.querySelectorAll('input[name="location"]').forEach(r => r.addEventListener('change', updateCalculations));
-    clinicTypeSelect.addEventListener('change', updateCalculations);
+    clinicTypeSelect.addEventListener('change', () => {
+        toggleAddonPanels();
+        updateCalculations();
+    });
     if (clinicSevere20Check) clinicSevere20Check.addEventListener('change', updateCalculations);
     if (patientSevereSelect) patientSevereSelect.addEventListener('change', updateCalculations);
 
@@ -785,6 +958,7 @@ document.addEventListener('DOMContentLoaded', () => {
     updateIncomeOptions();
     updateMedicationLabel();
     toggleCancerCareUI();
+    bindAddonInputs();
     medicationTotal10Cache = getMedicationTotal10();
     updateCalculations();
 });

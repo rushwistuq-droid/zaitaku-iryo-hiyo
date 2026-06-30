@@ -417,6 +417,43 @@ select.form-control {
     margin-top: 3px;
 }
 
+.radio-group {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    margin-top: 8px;
+}
+
+.radio-group .checkbox-item input[type="radio"] {
+    appearance: none;
+    width: 18px;
+    height: 18px;
+    border: 2px solid var(--border);
+    border-radius: 50%;
+    outline: none;
+    background-color: #ffffff;
+    cursor: pointer;
+    position: relative;
+    margin-top: 2px;
+    flex-shrink: 0;
+    transition: var(--transition);
+}
+
+.radio-group .checkbox-item input[type="radio"]:checked {
+    border-color: var(--primary);
+}
+
+.radio-group .checkbox-item input[type="radio"]:checked::after {
+    content: '';
+    position: absolute;
+    top: 3px;
+    left: 3px;
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background-color: var(--primary);
+}
+
 .disabled-section::after {
     content: '在がん総適用時は包括請求のため無効';
     position: absolute;

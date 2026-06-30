@@ -184,9 +184,9 @@
                             <label for="home-guidance-type">主たる在宅療養指導管理料（月1回・1件のみ算定）</label>
                             <select id="home-guidance-type" class="form-control">
                                 <option value="none" selected>なし</option>
-                                <option value="oxygen">在宅酸素療法指導管理料（2,500点/月）</option>
+                                <option value="oxygen">在宅酸素療法指導管理料（2,400点/月）</option>
                                 <option value="injection">在宅自己注射指導管理料（650点/月）</option>
-                                <option value="catheter">在宅自己導尿指導管理料（1,800点/月）</option>
+                                <option value="catheter">在宅自己導尿指導管理料（1,400点/月）</option>
                                 <option value="cancer">在宅悪性腫瘍患者指導管理料（1,500点/月）</option>
                                 <option value="wound">在宅寝たきり患者処置指導管理料（1,050点/月）※褥瘡等</option>
                             </select>
@@ -209,6 +209,92 @@
                             </div>
                             <span class="help-text">※選択中の負担割合での薬局自己負担額を入力してください。1割・2割に変更すると、10割換算で自動的に金額が再計算されます。</span>
                         </div>
+                    </div>
+                </div>
+
+                <div class="card form-card" id="addon-card">
+                    <div class="card-header">
+                        <h2><span class="step-num">3b</span>クリニックの加算・評価（任意）</h2>
+                    </div>
+                    <div class="card-body">
+                        <p class="help-text" style="margin-bottom: 16px;">担当クリニックが届出・算定している加算を選択してください。未選択の場合は基本の出来高＋管理料のみで計算します。</p>
+
+                        <div id="addon-cancer-note" class="public-details-panel hidden" style="margin-bottom: 16px;">
+                            <p class="help-text">在がん総適用時は、訪問・管理料は包括のため、情報連携・DX・データ提出・充実体制加算（300点）等のみ選択できます。</p>
+                        </div>
+
+                        <div class="form-group">
+                            <label>クリニックの評価区分（在医総管・在がん総）</label>
+                            <div class="radio-group" id="clinic-tier-group">
+                                <label class="checkbox-item inline-check">
+                                    <input type="radio" name="clinic-tier" value="none" checked>
+                                    <span>なし（基本の管理料・包括のみ）</span>
+                                </label>
+                                <label class="checkbox-item inline-check" data-tier="jujitsu">
+                                    <input type="radio" name="clinic-tier" value="jujitsu">
+                                    <span>在宅医療充実体制加算（在医総管+800点 / 在がん総+300点）</span>
+                                </label>
+                                <label class="checkbox-item inline-check tier-normal-only" data-tier="jisseki1">
+                                    <input type="radio" name="clinic-tier" value="jisseki1">
+                                    <span>在宅療養実績加算1（+300点/月・在医総管のみ）</span>
+                                </label>
+                                <label class="checkbox-item inline-check tier-normal-only" data-tier="jisseki2">
+                                    <input type="radio" name="clinic-tier" value="jisseki2">
+                                    <span>在宅療養実績加算2（+200点/月・在医総管のみ）</span>
+                                </label>
+                            </div>
+                        </div>
+
+                        <div id="addon-normal-panel">
+
+                        <div class="form-group">
+                            <label for="addon-dx">在宅医療DX情報活用加算（訪問診療・月1回）</label>
+                            <select id="addon-dx" class="form-control">
+                                <option value="none" selected>なし</option>
+                                <option value="1">加算1（+11点/月・電子処方箋対応）</option>
+                                <option value="2">加算2（+9点/月）</option>
+                            </select>
+                        </div>
+
+                        <div class="checkbox-grid">
+                            <label class="checkbox-item">
+                                <input type="checkbox" id="addon-info-renkei">
+                                <span>在宅医療情報連携加算（+100点/月）</span>
+                            </label>
+                            <label class="checkbox-item">
+                                <input type="checkbox" id="addon-data-submit">
+                                <span>在宅データ提出加算（+50点/月）</span>
+                            </label>
+                            <label class="checkbox-item">
+                                <input type="checkbox" id="addon-early-transition">
+                                <span>在宅移行早期加算（+100点/月・退院後3月以内）</span>
+                            </label>
+                            <label class="checkbox-item">
+                                <input type="checkbox" id="addon-online-mgmt">
+                                <span>オンライン在宅管理料（+100点/月）</span>
+                            </label>
+                            <label class="checkbox-item">
+                                <input type="checkbox" id="addon-nursing-instruction">
+                                <span>訪問看護指示料（+300点/月）</span>
+                            </label>
+                            <label class="checkbox-item">
+                                <input type="checkbox" id="addon-special-nursing">
+                                <span>特別訪問看護指示加算（+100点/月）</span>
+                            </label>
+                            <label class="checkbox-item" id="addon-continuing-care-row" style="display:none">
+                                <input type="checkbox" id="addon-continuing-care">
+                                <span>継続診療加算（+216点/月・一般診療所のみ）</span>
+                            </label>
+                            <label class="checkbox-item">
+                                <input type="checkbox" id="addon-emergency-info">
+                                <span>往診時医療情報連携加算（+200点/往診）</span>
+                            </label>
+                            <label class="checkbox-item">
+                                <input type="checkbox" id="addon-auto-frequent" checked>
+                                <span>頻回訪問加算を自動算定（+800点・月4回以上訪問時）</span>
+                            </label>
+                        </div>
+                        <span class="help-text">※包括的支援加算（+150点）は患者状態「別表8-3」選択時に自動反映済みです。夜間・休日往診加算、在宅ターミナルケア加算等は個別事情によるため含みません。</span>
                     </div>
                 </div>
 
@@ -390,6 +476,10 @@
                                 <tr>
                                     <td>お薬代 (自己負担額)</td>
                                     <td class="align-right"><span id="table-medication-copay">0</span>円</td>
+                                </tr>
+                                <tr class="sub-row" id="row-addons-detail" style="display:none">
+                                    <td class="indent-2 text-muted" id="table-addons-note">診療加算</td>
+                                    <td class="align-right text-muted"><span id="table-addons-points">0</span>点</td>
                                 </tr>
                                 <tr class="sub-row">
                                     <td class="indent-2 text-muted" id="table-guidance-note">在宅療養指導管理料</td>
@@ -585,6 +675,11 @@
                             <td>医療保険適用分</td>
                             <td id="print-detail-medical-desc">訪問診療料、在宅医学管理料など</td>
                             <td class="align-right"><span id="print-detail-medical-val">0</span> 円</td>
+                        </tr>
+                        <tr>
+                            <td>診療加算</td>
+                            <td id="print-addons">なし</td>
+                            <td class="align-right text-muted">—</td>
                         </tr>
                         <tr>
                             <td>介護保険適用分</td>

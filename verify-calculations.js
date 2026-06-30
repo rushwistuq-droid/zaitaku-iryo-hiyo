@@ -34,7 +34,22 @@ const FEE_2026 = {
     },
     nursingGuide: { home: 298, facility: 286 },
     houkatsuAddon: 150,
-    section3ManageRatio: 0.8
+    section3ManageRatio: 0.8,
+    addons: {
+        clinicTier: { jujitsu: 800, jisseki1: 300, jisseki2: 200 },
+        cancerJujitsu: 300,
+        infoRenkei: 100,
+        dataSubmit: 50,
+        earlyTransition: 100,
+        onlineMgmt: 100,
+        frequentVisitFirst: 800,
+        continuingCare: 216,
+        nursingInstruction: 300,
+        specialNursingInstruction: 100,
+        visitDx1: 11,
+        visitDx2: 9,
+        emergencyInfoRenkei: 200
+    }
 };
 
 const CLINIC_SECTION = { 'kinou-kyouka': 'section1', 'zashin-ippan': 'section2', 'other-clinic': 'section3' };
@@ -87,11 +102,40 @@ function getManagementPoints(location, section, visitFreq, patientStatus, clinic
     return pts;
 }
 
+function calculateAddonPoints(p) {
+    const A = FEE_2026.addons;
+    const f = p.addonFlags || {};
+    let total = 0;
+    const push = (pts) => { if (pts > 0) total += pts; };
+
+    if (!p.applyCancerCare) {
+        push(A.clinicTier[f.clinicTier]);
+        if (f.infoRenkei) push(A.infoRenkei);
+        if (f.dataSubmit) push(A.dataSubmit);
+        if (f.earlyTransition) push(A.earlyTransition);
+        if (f.onlineMgmt) push(A.onlineMgmt);
+        if (p.visitFreq >= 4 && f.autoFrequentVisit !== false) push(A.frequentVisitFirst);
+        if (f.continuingCare && p.clinicType === 'other-clinic') push(A.continuingCare);
+    } else {
+        if (f.infoRenkei) push(A.infoRenkei);
+        if (f.dataSubmit) push(A.dataSubmit);
+        if (f.clinicTier === 'jujitsu') push(A.cancerJujitsu);
+    }
+    if (f.nursingInstruction) push(A.nursingInstruction);
+    if (f.specialNursingInstruction) push(A.specialNursingInstruction);
+    if (f.dxAddon === '1') push(A.visitDx1);
+    else if (f.dxAddon === '2') push(A.visitDx2);
+    if (p.emergencyVisits > 0 && f.emergencyInfoRenkei) {
+        push(p.emergencyVisits * A.emergencyInfoRenkei);
+    }
+    return total;
+}
+
 function calcPoints(p) {
     const section = CLINIC_SECTION[p.clinicType] || 'section2';
     if (p.applyCancerCare) {
         const r = section === 'section1' ? FEE_2026.cancerCare.section1 : FEE_2026.cancerCare.section2;
-        return (p.hasPrescription ? r.withRx : r.withoutRx) * p.cancerCareWeeks;
+        return (p.hasPrescription ? r.withRx : r.withoutRx) * p.cancerCareWeeks + calculateAddonPoints(p);
     }
     const loc = p.location === 'home' ? 'home' : 'facility';
     let pts = FEE_2026.visit[loc] * p.visitFreq;
@@ -99,6 +143,7 @@ function calcPoints(p) {
     pts += (FEE_2026.guidance[p.homeGuidance] || 0);
     pts += p.emergencyVisits * getEmergencyVisitPoints(p.clinicType);
     pts += p.hasPrescription ? FEE_2026.prescription : FEE_2026.noPrescriptionBonus;
+    pts += calculateAddonPoints(p);
     return pts;
 }
 
@@ -226,6 +271,29 @@ const tests = [
             homeGuidance: 'none', hasPrescription: true, emergencyVisits: 0, ratio: 0.1, useNursing: true,
             nursingRatio: 0.1, medTotal10: 0, publicExpense: 'none', age: '75', incomeKey: 'o70-general' },
         expectNursing: 596
+    },
+    {
+        name: '加算: 情報連携+DX+訪問看護指示',
+        p: { location: 'home', clinicType: 'kinou-kyouka', visitFreq: 2, patientStatus: 'no', clinicMeets20: true,
+            homeGuidance: 'none', hasPrescription: true, emergencyVisits: 0, ratio: 0.3, useNursing: false,
+            medTotal10: 0, publicExpense: 'none', age: '69', incomeKey: 'u70-c',
+            addonFlags: { clinicTier: 'none', infoRenkei: true, dxAddon: '1', nursingInstruction: true } },
+        expectPts: 890 * 2 + 4085 + 68 + 100 + 11 + 300
+    },
+    {
+        name: '加算: 充実体制+頻回訪問(4回)',
+        p: { location: 'home', clinicType: 'kinou-kyouka', visitFreq: 4, patientStatus: 'no', clinicMeets20: true,
+            homeGuidance: 'none', hasPrescription: true, emergencyVisits: 0, ratio: 0.1, useNursing: false,
+            medTotal10: 0, publicExpense: 'none', age: '75', incomeKey: 'o70-general',
+            addonFlags: { clinicTier: 'jujitsu', autoFrequentVisit: true } },
+        expectPts: 890 * 4 + 4085 + 68 + 800 + 800
+    },
+    {
+        name: '加算: 在がん総+情報連携+充実体制',
+        p: { applyCancerCare: true, clinicType: 'kinou-kyouka', cancerCareWeeks: 4, hasPrescription: true,
+            ratio: 0.1, useNursing: false, medTotal10: 0, publicExpense: 'none', age: '75', incomeKey: 'o70-general',
+            addonFlags: { clinicTier: 'jujitsu', infoRenkei: true } },
+        expectPts: 1650 * 4 + 100 + 300
     }
 ];
 

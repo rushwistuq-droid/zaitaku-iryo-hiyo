@@ -1,0 +1,18 @@
+{
+  "name": "在宅医療費用シミュレーター",
+  "short_name": "在宅医療費用",
+  "description": "訪問診療の費用を患者さん・ご家族向けにわかりやすく説明するツール",
+  "start_url": "./index.html",
+  "display": "standalone",
+  "background_color": "#f8fafc",
+  "theme_color": "#0f766e",
+  "lang": "ja",
+  "icons": [
+    {
+      "src": "icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}

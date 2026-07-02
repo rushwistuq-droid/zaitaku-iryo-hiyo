@@ -140,6 +140,11 @@ document.addEventListener('DOMContentLoaded', () => {
             specialNursingInstruction: 100,
             visitDx1: 11,
             visitDx2: 9,
+            bukkaVisit: 3,
+            bukkaReexam: 2,
+            baseUpVisitHome: 79,
+            baseUpVisitFacility: 19,
+            baseUpReexam: 4,
             emergencyInfoRenkei: 200,
             pharmacistJoint: 300,
             terminalCare: { tier3500: 3500, tier4500: 4500, tier5500: 5500, tier6500: 6500 },
@@ -281,6 +286,8 @@ document.addEventListener('DOMContentLoaded', () => {
             emergencyInfoRenkei: !!document.getElementById('addon-emergency-info')?.checked,
             dxAddon: document.getElementById('addon-dx')?.value || 'none',
             autoFrequentVisit: document.getElementById('addon-auto-frequent')?.checked !== false,
+            bukkaVisit: document.getElementById('addon-bukka')?.checked !== false,
+            baseUpVisit: document.getElementById('addon-base-up')?.checked !== false,
             pharmacistJoint: !!document.getElementById('addon-pharmacist-joint')?.checked,
             terminalCare: document.getElementById('addon-terminal-care')?.value || 'none',
             miokuri: !!document.getElementById('addon-miokuri')?.checked
@@ -288,7 +295,10 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function calculateAddonPoints(params) {
-        const { applyCancerCare, clinicType, visitFreq, emergencyVisits, addonFlags, location } = params;
+        const {
+            applyCancerCare, clinicType, visitFreq, cancerCareWeeks, emergencyVisits,
+            addonFlags, location, hasPrescription
+        } = params;
         const A = FEE_2026.addons;
         const items = [];
         let total = 0;
@@ -332,6 +342,21 @@ document.addEventListener('DOMContentLoaded', () => {
 
         if (addonFlags.dxAddon === '1') push('在宅医療DX情報活用加算1', A.visitDx1);
         else if (addonFlags.dxAddon === '2') push('在宅医療DX情報活用加算2', A.visitDx2);
+
+        const visitCount = applyCancerCare ? (cancerCareWeeks || 0) : visitFreq;
+        if (visitCount > 0 && addonFlags.bukkaVisit) {
+            push('外来・在宅物価対応料（訪問診療時）', visitCount * A.bukkaVisit);
+        }
+        if (visitCount > 0 && addonFlags.baseUpVisit) {
+            const baseUpPts = location === 'home' ? A.baseUpVisitHome : A.baseUpVisitFacility;
+            push('外来・在宅ベースアップ評価料（Ⅰ）3・訪問診療', visitCount * baseUpPts);
+        }
+        if (hasPrescription && addonFlags.bukkaVisit) {
+            push('外来・在宅物価対応料（再診時等）', A.bukkaReexam);
+        }
+        if (hasPrescription && addonFlags.baseUpVisit) {
+            push('外来・在宅ベースアップ評価料（Ⅰ）2・再診時等', A.baseUpReexam);
+        }
 
         if (emergencyVisits > 0 && addonFlags.emergencyInfoRenkei) {
             push('往診時医療情報連携加算', emergencyVisits * A.emergencyInfoRenkei);
@@ -403,7 +428,8 @@ document.addEventListener('DOMContentLoaded', () => {
                 : FEE_2026.cancerCare.section2;
             breakdown.cancer = (hasPrescription ? rates.withRx : rates.withoutRx) * cancerCareWeeks;
             const addonResult = calculateAddonPoints({
-                applyCancerCare, clinicType, visitFreq, emergencyVisits: 0, addonFlags, location
+                applyCancerCare, clinicType, visitFreq, cancerCareWeeks, emergencyVisits: 0,
+                addonFlags, location, hasPrescription
             });
             breakdown.addons = addonResult.total;
             addonItems = addonResult.items;
@@ -430,7 +456,8 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         const addonResult = calculateAddonPoints({
-            applyCancerCare, clinicType, visitFreq, emergencyVisits, addonFlags, location
+            applyCancerCare, clinicType, visitFreq, cancerCareWeeks, emergencyVisits,
+            addonFlags, location, hasPrescription
         });
         breakdown.addons = addonResult.total;
         addonItems = addonResult.items;
@@ -959,7 +986,7 @@ document.addEventListener('DOMContentLoaded', () => {
             'addon-info-renkei', 'addon-data-submit', 'addon-early-transition',
             'addon-online-mgmt', 'addon-nursing-instruction', 'addon-special-nursing',
             'addon-continuing-care', 'addon-emergency-info', 'addon-auto-frequent',
-            'addon-pharmacist-joint', 'addon-miokuri'
+            'addon-pharmacist-joint', 'addon-miokuri', 'addon-bukka', 'addon-base-up'
         ];
         addonIds.forEach(id => {
             const el = document.getElementById(id);

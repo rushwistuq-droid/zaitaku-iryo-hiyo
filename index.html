@@ -276,20 +276,28 @@
                         <div class="form-group">
                             <label for="addon-dx">在宅医療DX情報活用加算（訪問診療・月1回）</label>
                             <select id="addon-dx" class="form-control">
-                                <option value="none" selected>なし</option>
-                                <option value="1">加算1（+11点/月・電子処方箋対応）</option>
+                                <option value="none">なし</option>
+                                <option value="1" selected>加算1（+11点/月・電子処方箋対応）</option>
                                 <option value="2">加算2（+9点/月）</option>
                             </select>
                         </div>
 
                         <div class="checkbox-grid">
                             <label class="checkbox-item">
-                                <input type="checkbox" id="addon-info-renkei">
+                                <input type="checkbox" id="addon-info-renkei" checked>
                                 <span>在宅医療情報連携加算（+100点/月）</span>
                             </label>
                             <label class="checkbox-item">
-                                <input type="checkbox" id="addon-data-submit">
+                                <input type="checkbox" id="addon-data-submit" checked>
                                 <span>在宅データ提出加算（+50点/月）</span>
+                            </label>
+                            <label class="checkbox-item">
+                                <input type="checkbox" id="addon-bukka" checked>
+                                <span>外来・在宅物価対応料（訪問+3点/回・処方+2点/月）</span>
+                            </label>
+                            <label class="checkbox-item">
+                                <input type="checkbox" id="addon-base-up" checked>
+                                <span>外来・在宅ベースアップ評価料（Ⅰ）3（訪問+79/19点/回・処方+4点/月）</span>
                             </label>
                             <label class="checkbox-item">
                                 <input type="checkbox" id="addon-early-transition">
@@ -340,7 +348,7 @@
                             </label>
                             <span class="help-text">※死亡日および死亡日前14日以内に2回以上の往診・訪問診療等の要件を満たす場合に算定。ターミナルケア加算と看取り加算は死亡月に併算可能です。</span>
                         </div>
-                        <span class="help-text">※包括的支援加算（+150点）は患者状態「別表8-3」選択時に自動反映済みです。交通費等の保険外費用は含みません。</span>
+                        <span class="help-text">※当院で通常算定している加算（DX1・物価対応・データ提出・情報連携・ベースアップ評価料）は初期選択済みです。包括的支援加算（+150点）は患者状態「別表8-3」選択時に自動反映済みです。</span>
                     </div>
                 </div>
 

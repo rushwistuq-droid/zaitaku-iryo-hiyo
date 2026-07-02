@@ -58,6 +58,11 @@ const FEE_2026 = {
         specialNursingInstruction: 100,
         visitDx1: 11,
         visitDx2: 9,
+        bukkaVisit: 3,
+        bukkaReexam: 2,
+        baseUpVisitHome: 79,
+        baseUpVisitFacility: 19,
+        baseUpReexam: 4,
         emergencyInfoRenkei: 200,
         pharmacistJoint: 300,
         terminalCare: { tier3500: 3500, tier4500: 4500, tier5500: 5500, tier6500: 6500 },
@@ -133,6 +138,7 @@ function getManagementPoints(location, section, visitFreq, patientStatus, clinic
 function calculateAddonPoints(p) {
     const A = FEE_2026.addons;
     const f = p.addonFlags || {};
+    const visitCount = p.applyCancerCare ? (p.cancerCareWeeks || 0) : (p.visitFreq || 0);
     let total = 0;
     const push = (pts) => { if (pts > 0) total += pts; };
 
@@ -153,6 +159,12 @@ function calculateAddonPoints(p) {
     if (f.specialNursingInstruction) push(A.specialNursingInstruction);
     if (f.dxAddon === '1') push(A.visitDx1);
     else if (f.dxAddon === '2') push(A.visitDx2);
+    if (visitCount > 0 && f.bukkaVisit) push(visitCount * A.bukkaVisit);
+    if (visitCount > 0 && f.baseUpVisit) {
+        push(visitCount * (p.location === 'home' ? A.baseUpVisitHome : A.baseUpVisitFacility));
+    }
+    if (p.hasPrescription && f.bukkaVisit) push(A.bukkaReexam);
+    if (p.hasPrescription && f.baseUpVisit) push(A.baseUpReexam);
     if (p.emergencyVisits > 0 && f.emergencyInfoRenkei) {
         push(p.emergencyVisits * A.emergencyInfoRenkei);
     }
@@ -354,6 +366,14 @@ const tests = [
             medTotal10: 0, publicExpense: 'none', age: '75', incomeKey: 'o70-general',
             addonFlags: { terminalCare: 'tier4500', miokuri: true, pharmacistJoint: true } },
         expectPts: 890 * 2 + 3685 + 68 + 4500 + 3000 + 300
+    },
+    {
+        name: '当院デフォルト加算（DX1+物価+データ+連携+ベースアップ）',
+        p: { location: 'home', clinicType: 'kinou-kyouka', visitFreq: 2, patientStatus: 'no', clinicMeets20: true,
+            homeGuidance: 'none', hasPrescription: true, emergencyVisits: 0, ratio: 0.3, useNursing: false,
+            medTotal10: 0, publicExpense: 'none', age: '69', incomeKey: 'u70-c',
+            addonFlags: { dxAddon: '1', infoRenkei: true, dataSubmit: true, bukkaVisit: true, baseUpVisit: true } },
+        expectPts: 890 * 2 + 4085 + 68 + 11 + 100 + 50 + (2 * 3) + (2 * 79) + 2 + 4
     }
 ];
 

@@ -285,7 +285,7 @@ document.addEventListener('DOMContentLoaded', () => {
             continuingCare: !!document.getElementById('addon-continuing-care')?.checked,
             emergencyInfoRenkei: !!document.getElementById('addon-emergency-info')?.checked,
             dxAddon: document.getElementById('addon-dx')?.value || 'none',
-            autoFrequentVisit: document.getElementById('addon-auto-frequent')?.checked !== false,
+            autoFrequentVisit: !!document.getElementById('addon-auto-frequent')?.checked,
             bukkaVisit: document.getElementById('addon-bukka')?.checked !== false,
             baseUpVisit: document.getElementById('addon-base-up')?.checked !== false,
             pharmacistJoint: !!document.getElementById('addon-pharmacist-joint')?.checked,

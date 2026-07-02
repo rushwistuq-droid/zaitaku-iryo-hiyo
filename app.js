@@ -77,8 +77,18 @@ document.addEventListener('DOMContentLoaded', () => {
     const closeButtons = document.querySelectorAll('.btn-close-modal');
     const modals = document.querySelectorAll('.modal');
     const visitPlanControls = document.getElementById('visit-plan-controls');
+    const facilityPatientTierGroup = document.getElementById('facility-patient-tier-group');
+    const facilityBuildingPatientsSelect = document.getElementById('facility-building-patients');
 
-    // 令和8年度（2026年6月施行）診療報酬 — 単一建物1人想定
+    const BUILDING_PATIENT_TIER_LABELS = {
+        tier1: '1人',
+        tier2_9: '2〜9人',
+        tier10_19: '10〜19人',
+        tier20_49: '20〜49人',
+        tier50plus: '50人以上'
+    };
+
+    // 令和8年度（2026年6月施行）診療報酬
     const FEE_2026 = {
         visit: { home: 890, facility: 215 },
         houseCall: 720,
@@ -107,9 +117,27 @@ document.addEventListener('DOMContentLoaded', () => {
                 section3: { severeMulti: 3435, multi: 2735, single: 1745 }
             },
             facility: {
-                section1: { severeMulti: 3585, multi: 2885, single: 1785 },
-                section2: { severeMulti: 3285, multi: 2585, single: 1625 },
-                section3: { severeMulti: 2435, multi: 1935, single: 1265 }
+                section1: {
+                    tier1: { severeMulti: 3585, multi: 2885, single: 1785 },
+                    tier2_9: { severeMulti: 2955, multi: 1535, single: 975 },
+                    tier10_19: { severeMulti: 2625, multi: 1085, single: 705 },
+                    tier20_49: { severeMulti: 2205, multi: 970, single: 615 },
+                    tier50plus: { severeMulti: 1935, multi: 825, single: 525 }
+                },
+                section2: {
+                    tier1: { severeMulti: 3285, multi: 2585, single: 1625 },
+                    tier2_9: { severeMulti: 2685, multi: 1385, single: 905 },
+                    tier10_19: { severeMulti: 2385, multi: 985, single: 665 },
+                    tier20_49: { severeMulti: 2010, multi: 875, single: 570 },
+                    tier50plus: { severeMulti: 1765, multi: 745, single: 490 }
+                },
+                section3: {
+                    tier1: { severeMulti: 2435, multi: 1935, single: 1265 },
+                    tier2_9: { severeMulti: 2010, multi: 1010, single: 710 },
+                    tier10_19: { severeMulti: 1785, multi: 735, single: 545 },
+                    tier20_49: { severeMulti: 1500, multi: 655, single: 455 },
+                    tier50plus: { severeMulti: 1315, multi: 555, single: 395 }
+                }
             }
         },
         guidance: {
@@ -386,9 +414,13 @@ document.addEventListener('DOMContentLoaded', () => {
         return { total, items };
     }
 
-    function getManagementPoints(location, section, visitFreq, patientStatus, clinicMeets20) {
+    function getManagementPoints(location, section, visitFreq, patientStatus, clinicMeets20, buildingPatientTier) {
         const locKey = location === 'home' ? 'home' : 'facility';
-        const rates = FEE_2026.management[locKey][section];
+        const sectionRates = FEE_2026.management[locKey][section];
+        const tierKey = locKey === 'facility' ? (buildingPatientTier || 'tier1') : null;
+        const rates = locKey === 'facility'
+            ? (sectionRates[tierKey] || sectionRates.tier1)
+            : sectionRates;
 
         let useMulti = visitFreq >= 2;
         if (useMulti && !clinicMeets20) useMulti = false;
@@ -415,7 +447,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const {
             applyCancerCare, clinicType, hasPrescription, cancerCareWeeks,
             location, visitFreq, emergencyVisits, nightHolidayVisits, lateNightVisits,
-            homeGuidanceType, patientStatus, clinicMeets20, addonFlags
+            homeGuidanceType, patientStatus, clinicMeets20, buildingPatientTier, addonFlags
         } = params;
 
         const section = CLINIC_SECTION[clinicType] || 'section2';
@@ -438,7 +470,9 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         breakdown.visit = FEE_2026.visit[location === 'home' ? 'home' : 'facility'] * visitFreq;
-        breakdown.management = getManagementPoints(location, section, visitFreq, patientStatus, clinicMeets20);
+        breakdown.management = getManagementPoints(
+            location, section, visitFreq, patientStatus, clinicMeets20, buildingPatientTier
+        );
 
         if (emergencyVisits > 0) {
             breakdown.emergency = getEmergencyVisitBreakdown(
@@ -626,6 +660,14 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
+    function toggleFacilityPatientTierUI() {
+        const location = document.querySelector('input[name="location"]:checked')?.value || 'home';
+        const showTier = location === 'facility';
+        if (facilityPatientTierGroup) {
+            facilityPatientTierGroup.classList.toggle('hidden', !showTier);
+        }
+    }
+
     function toggleAddonPanels() {
         const applyCancer = applyCancerCareSelect.value === 'yes';
         const isOtherClinic = clinicTypeSelect.value === 'other-clinic';
@@ -709,6 +751,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const homeGuidanceType = homeGuidanceSelect.value;
         const patientStatus = patientSevereSelect ? patientSevereSelect.value : 'no';
         const clinicMeets20 = !clinicSevere20Check || clinicSevere20Check.checked;
+        const buildingPatientTier = facilityBuildingPatientsSelect?.value || 'tier1';
 
         const hasPrescription = hasPrescriptionSelect.value === 'yes';
         const medTotal10 = getMedicationTotal10();
@@ -724,7 +767,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const { totalPoints, breakdown, addonItems, guidanceLabel } = calculateMedicalPoints({
             applyCancerCare, clinicType, hasPrescription, cancerCareWeeks,
             location, visitFreq, emergencyVisits, nightHolidayVisits, lateNightVisits,
-            homeGuidanceType, patientStatus, clinicMeets20, addonFlags
+            homeGuidanceType, patientStatus, clinicMeets20, buildingPatientTier, addonFlags
         });
 
         const medicalTotal10 = totalPoints * 10;
@@ -790,14 +833,14 @@ document.addEventListener('DOMContentLoaded', () => {
         updateAdvice({
             age, useNursing, publicExpense, hasPrescription, visitFreq, emergencyVisits,
             applyCancerCare, hasDisabilityCert, homeGuidanceType, clinicMeets20, patientStatus, clinicType,
-            addonItems, addonFlags
+            buildingPatientTier, addonItems, addonFlags
         });
         updatePrintData({
             age, medicalRatio, location, incomeKey, visitFreq, emergencyVisits,
             useNursing, publicExpense, finalPatientTotal,
             medicalCopay: result.medical, nursingCopay: result.nursing,
             medicationCopay: result.medication, applyCancerCare, cancerCareWeeks,
-            hasDisabilityCert, guidanceLabel, clinicType, patientStatus, addonItems
+            hasDisabilityCert, guidanceLabel, clinicType, patientStatus, buildingPatientTier, addonItems
         });
     }
 
@@ -834,7 +877,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const {
             age, useNursing, publicExpense, hasPrescription, visitFreq, emergencyVisits,
             applyCancerCare, hasDisabilityCert, homeGuidanceType, clinicMeets20, patientStatus, clinicType,
-            addonItems, addonFlags
+            buildingPatientTier, addonItems, addonFlags
         } = ctx;
         const isSenior = age === '75' || age === '70';
         const items = [];
@@ -860,6 +903,11 @@ document.addEventListener('DOMContentLoaded', () => {
 
         if (clinicType === 'other-clinic' && !applyCancerCare) {
             items.push('<strong>一般診療所</strong>: 在医総管・施設総管は2026年改定により<strong>80%に減算</strong>されます（C002通知25）。');
+        }
+
+        if (!applyCancerCare && document.querySelector('input[name="location"]:checked')?.value === 'facility') {
+            const tierLabel = BUILDING_PATIENT_TIER_LABELS[buildingPatientTier] || '1人';
+            items.push(`<strong>施設入居時等医学総合管理料</strong>: 同一建物診療患者数 <strong>${tierLabel}</strong> 区分で算定しています。人数が多いほど管理料の点数は低くなります。`);
         }
 
         if (isSenior) {
@@ -926,7 +974,7 @@ document.addEventListener('DOMContentLoaded', () => {
             useNursing, publicExpense, finalPatientTotal,
             medicalCopay, nursingCopay, medicationCopay,
             applyCancerCare, cancerCareWeeks, hasDisabilityCert, guidanceLabel, clinicType,
-            addonItems
+            buildingPatientTier, addonItems
         } = data;
 
         const now = new Date();
@@ -942,8 +990,10 @@ document.addEventListener('DOMContentLoaded', () => {
         document.getElementById('print-age').textContent =
             age === '75' ? '75歳以上' : (age === '70' ? '70〜74歳' : '70歳未満');
         document.getElementById('print-copay').textContent = `${Math.round(medicalRatio * 10)}割負担`;
-        document.getElementById('print-location').textContent =
-            location === 'home' ? '自宅' : '施設・同一建物';
+        const tierLabel = BUILDING_PATIENT_TIER_LABELS[buildingPatientTier] || '1人';
+        document.getElementById('print-location').textContent = location === 'home'
+            ? '自宅'
+            : `施設・同一建物（診療患者${tierLabel}）`;
         document.getElementById('print-clinic').textContent = clinicLabels[clinicType] || '';
 
         const isSenior = age === '75' || age === '70';
@@ -1017,9 +1067,13 @@ document.addEventListener('DOMContentLoaded', () => {
 
     incomeLevelSelect.addEventListener('change', updateCalculations);
     document.querySelectorAll('input[name="location"]').forEach(r => r.addEventListener('change', () => {
+        toggleFacilityPatientTierUI();
         toggleAddonPanels();
         updateCalculations();
     }));
+    if (facilityBuildingPatientsSelect) {
+        facilityBuildingPatientsSelect.addEventListener('change', updateCalculations);
+    }
     clinicTypeSelect.addEventListener('change', () => {
         toggleAddonPanels();
         updateCalculations();
@@ -1120,6 +1174,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     updateIncomeOptions();
     updateMedicationLabel();
+    toggleFacilityPatientTierUI();
     toggleCancerCareUI();
     bindAddonInputs();
     syncEmergencyTimeSliders();

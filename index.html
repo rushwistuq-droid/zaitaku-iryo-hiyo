@@ -57,9 +57,9 @@
                             <label for="copay-ratio">医療保険の自己負担割合</label>
                             <select id="copay-ratio" class="form-control">
                                 <!-- JSで動的にオプションを制御・初期値設定 -->
-                                <option value="0.1">1割負担</option>
+                                <option value="0.1" selected>1割負担</option>
                                 <option value="0.2">2割負担</option>
-                                <option value="0.3" selected>3割負担</option>
+                                <option value="0.3">3割負担</option>
                             </select>
                             <span class="help-text">※保険証に記載されている負担割合を選択してください。</span>
                         </div>
@@ -106,6 +106,18 @@
                                     </div>
                                 </label>
                             </div>
+                        </div>
+
+                        <div class="form-group hidden" id="facility-patient-tier-group">
+                            <label for="facility-building-patients">同一建物の診療患者数（施設入居時等医学総合管理料の区分）</label>
+                            <select id="facility-building-patients" class="form-control">
+                                <option value="tier1" selected>1人</option>
+                                <option value="tier2_9">2〜9人</option>
+                                <option value="tier10_19">10〜19人</option>
+                                <option value="tier20_49">20〜49人</option>
+                                <option value="tier50plus">50人以上</option>
+                            </select>
+                            <span class="help-text">※当該建物で施医総管（在医総管）を算定する患者の合計人数です。人数が多いほど管理料の点数は低くなります。</span>
                         </div>
 
                         <!-- 診療所種別（2026年度改定） -->
@@ -324,7 +336,7 @@
                                 <span>往診時医療情報連携加算（+200点/往診）</span>
                             </label>
                             <label class="checkbox-item">
-                                <input type="checkbox" id="addon-auto-frequent" checked>
+                                <input type="checkbox" id="addon-auto-frequent">
                                 <span>頻回訪問加算を自動算定（+800点・月4回以上訪問時）</span>
                             </label>
                             <label class="checkbox-item" id="addon-pharmacist-row" style="display:none">

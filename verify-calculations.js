@@ -30,9 +30,27 @@ const FEE_2026 = {
             section3: { severeMulti: 3435, multi: 2735, single: 1745 }
         },
         facility: {
-            section1: { severeMulti: 3585, multi: 2885, single: 1785 },
-            section2: { severeMulti: 3285, multi: 2585, single: 1625 },
-            section3: { severeMulti: 2435, multi: 1935, single: 1265 }
+            section1: {
+                tier1: { severeMulti: 3585, multi: 2885, single: 1785 },
+                tier2_9: { severeMulti: 2955, multi: 1535, single: 975 },
+                tier10_19: { severeMulti: 2625, multi: 1085, single: 705 },
+                tier20_49: { severeMulti: 2205, multi: 970, single: 615 },
+                tier50plus: { severeMulti: 1935, multi: 825, single: 525 }
+            },
+            section2: {
+                tier1: { severeMulti: 3285, multi: 2585, single: 1625 },
+                tier2_9: { severeMulti: 2685, multi: 1385, single: 905 },
+                tier10_19: { severeMulti: 2385, multi: 985, single: 665 },
+                tier20_49: { severeMulti: 2010, multi: 875, single: 570 },
+                tier50plus: { severeMulti: 1765, multi: 745, single: 490 }
+            },
+            section3: {
+                tier1: { severeMulti: 2435, multi: 1935, single: 1265 },
+                tier2_9: { severeMulti: 2010, multi: 1010, single: 710 },
+                tier10_19: { severeMulti: 1785, multi: 735, single: 545 },
+                tier20_49: { severeMulti: 1500, multi: 655, single: 455 },
+                tier50plus: { severeMulti: 1315, multi: 555, single: 395 }
+            }
         }
     },
     guidance: {
@@ -120,9 +138,13 @@ function applyMonthlyCap(medical, medication, nursing, cap) {
     return { medical: m, medication: med, nursing: n, deduction: total - cap };
 }
 
-function getManagementPoints(location, section, visitFreq, patientStatus, clinicMeets20) {
+function getManagementPoints(location, section, visitFreq, patientStatus, clinicMeets20, buildingPatientTier) {
     const locKey = location === 'home' ? 'home' : 'facility';
-    const rates = FEE_2026.management[locKey][section];
+    const sectionRates = FEE_2026.management[locKey][section];
+    const tierKey = locKey === 'facility' ? (buildingPatientTier || 'tier1') : null;
+    const rates = locKey === 'facility'
+        ? (sectionRates[tierKey] || sectionRates.tier1)
+        : sectionRates;
     let useMulti = visitFreq >= 2;
     if (useMulti && !clinicMeets20) useMulti = false;
     let pts;
@@ -184,7 +206,9 @@ function calcPoints(p) {
     }
     const loc = p.location === 'home' ? 'home' : 'facility';
     let pts = FEE_2026.visit[loc] * p.visitFreq;
-    pts += getManagementPoints(p.location, section, p.visitFreq, p.patientStatus, p.clinicMeets20);
+    pts += getManagementPoints(
+        p.location, section, p.visitFreq, p.patientStatus, p.clinicMeets20, p.buildingPatientTier
+    );
     pts += (FEE_2026.guidance[p.homeGuidance] || 0);
     pts += getEmergencyVisitBreakdown(
         p.clinicType,
@@ -279,6 +303,27 @@ const tests = [
             homeGuidance: 'none', hasPrescription: true, emergencyVisits: 0, ratio: 0.3, useNursing: true,
             nursingRatio: 0.1, medTotal10: 10000, publicExpense: 'none', age: '69', incomeKey: 'u70-c' },
         expectPts: 215 * 2 + 2585 + 68
+    },
+    {
+        name: '施設・在支診2・同一建物2〜9人',
+        p: { location: 'facility', clinicType: 'zashin-ippan', visitFreq: 2, patientStatus: 'no', clinicMeets20: true,
+            buildingPatientTier: 'tier2_9', homeGuidance: 'none', hasPrescription: true, emergencyVisits: 0, ratio: 0.3,
+            useNursing: false, medTotal10: 10000, publicExpense: 'none', age: '69', incomeKey: 'u70-c' },
+        expectPts: 215 * 2 + 1385 + 68
+    },
+    {
+        name: '施設・在支診2・同一建物50人以上',
+        p: { location: 'facility', clinicType: 'zashin-ippan', visitFreq: 2, patientStatus: 'no', clinicMeets20: true,
+            buildingPatientTier: 'tier50plus', homeGuidance: 'none', hasPrescription: true, emergencyVisits: 0, ratio: 0.3,
+            useNursing: false, medTotal10: 0, publicExpense: 'none', age: '69', incomeKey: 'u70-c' },
+        expectPts: 215 * 2 + 745 + 68
+    },
+    {
+        name: '施設・機能強化型・10〜19人・別表8-2',
+        p: { location: 'facility', clinicType: 'kinou-kyouka', visitFreq: 2, patientStatus: 'severe', clinicMeets20: true,
+            buildingPatientTier: 'tier10_19', homeGuidance: 'none', hasPrescription: true, emergencyVisits: 0, ratio: 0.3,
+            useNursing: false, medTotal10: 0, publicExpense: 'none', age: '69', incomeKey: 'u70-c' },
+        expectPts: 215 * 2 + 2625 + 68
     },
     {
         name: '在がん総4週・機能強化型・3割',

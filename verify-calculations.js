@@ -138,6 +138,136 @@ function applyMonthlyCap(medical, medication, nursing, cap) {
     return { medical: m, medication: med, nursing: n, deduction: total - cap };
 }
 
+const NANBYOU_CAP_BY_TIER = {
+    '0': { normal: 0, longTerm: 0 },
+    '2500': { normal: 2500, longTerm: 2500 },
+    '5000': { normal: 5000, longTerm: 5000 },
+    '10000': { normal: 10000, longTerm: 5000 },
+    '20000': { normal: 20000, longTerm: 10000 },
+    '30000': { normal: 30000, longTerm: 20000 }
+};
+
+function getNanbyouMonthlyCap(limitKey, ventilator, longTerm) {
+    if (ventilator) return 1000;
+    const tier = NANBYOU_CAP_BY_TIER[String(limitKey)] || NANBYOU_CAP_BY_TIER['10000'];
+    return longTerm ? tier.longTerm : tier.normal;
+}
+
+function applyPublicExpenseCore(params) {
+    const {
+        publicExpense, medicalTotal10, medTotal10, medicalRatio, nursingRatio,
+        nursingUnits, rawMedicalCopay, rawMedCopay, rawNursingCopay,
+        age, incomeKey, visitFreq, emergencyVisits, hasDisabilityCert, disabilityGrade,
+        nanbyouLimit, nanbyouVentilator, nanbyouLongTerm,
+        jiritsuLimit, jiritsuCoveragePct,
+        localSubsidyType, localCoverNursing
+    } = params;
+
+    let medical = rawMedicalCopay;
+    let medication = rawMedCopay;
+    let nursing = rawNursingCopay;
+
+    if (publicExpense === 'welfare') {
+        return { medical: 0, medication: 0, nursing: 0 };
+    }
+
+    if (publicExpense === 'nanbyou') {
+        const nbRatio = Math.min(0.2, medicalRatio);
+        const nbNursingRatio = Math.min(0.2, nursingRatio);
+        medical = Math.round(medicalTotal10 * nbRatio);
+        medication = Math.round(medTotal10 * nbRatio);
+        nursing = Math.round(nursingUnits * 10 * nbNursingRatio);
+        const cap = getNanbyouMonthlyCap(
+            nanbyouLimit ?? '10000', !!nanbyouVentilator, !!nanbyouLongTerm
+        );
+        const c = applyMonthlyCap(medical, medication, nursing, cap);
+        return { medical: c.medical, medication: c.medication, nursing: c.nursing };
+    }
+
+    if (publicExpense === 'jiritsu') {
+        const jRatio = Math.min(0.1, medicalRatio);
+        const coverage = Math.min(1, Math.max(0, (jiritsuCoveragePct ?? 100) / 100));
+        const coveredMed10 = medicalTotal10 * coverage;
+        const uncoveredMed10 = medicalTotal10 * (1 - coverage);
+        const coveredDrug10 = medTotal10 * coverage;
+        const uncoveredDrug10 = medTotal10 * (1 - coverage);
+        let jMedical = Math.round(coveredMed10 * jRatio);
+        let jMedication = Math.round(coveredDrug10 * jRatio);
+        const uMedical = Math.round(uncoveredMed10 * medicalRatio);
+        const uMedication = Math.round(uncoveredDrug10 * medicalRatio);
+        const limitVal = jiritsuLimit ?? '5000';
+        if (limitVal !== 'none' && coverage > 0) {
+            const cap = parseFloat(limitVal === '5000-mid' ? 5000 : limitVal);
+            const c = applyMonthlyCap(jMedical, jMedication, 0, cap);
+            jMedical = c.medical;
+            jMedication = c.medication;
+        }
+        return {
+            medical: jMedical + uMedical,
+            medication: jMedication + uMedication,
+            nursing
+        };
+    }
+
+    if (publicExpense === 'local-subsidy') {
+        const subsidyType = localSubsidyType ?? 'zero';
+        const coverNursing = !!localCoverNursing;
+        if (subsidyType === 'zero') {
+            return {
+                medical: 0, medication: 0,
+                nursing: coverNursing ? 0 : nursing
+            };
+        }
+        if (subsidyType === 'fixed-500') {
+            const cap = (visitFreq + (emergencyVisits || 0)) * 500;
+            const c = applyMonthlyCap(medical, medication, 0, cap);
+            return { medical: c.medical, medication: c.medication, nursing };
+        }
+        if (subsidyType === 'fixed-1000') {
+            const c = applyMonthlyCap(medical, medication, 0, 1000);
+            return { medical: c.medical, medication: c.medication, nursing };
+        }
+        if (subsidyType.startsWith('ratio-cap-')) {
+            const cap = parseInt(subsidyType.replace('ratio-cap-', ''), 10);
+            const r = Math.min(0.1, medicalRatio);
+            const c = applyMonthlyCap(
+                Math.round(medicalTotal10 * r),
+                Math.round(medTotal10 * r),
+                0,
+                cap
+            );
+            return { medical: c.medical, medication: c.medication, nursing };
+        }
+        return { medical, medication, nursing };
+    }
+
+    const combinedMedicalTotal10 = medicalTotal10 + medTotal10;
+    const highCostLimit = getHighCostLimit(age, incomeKey, combinedMedicalTotal10);
+    const medicalDrugCopay = medical + medication;
+    if (medicalDrugCopay > highCostLimit) {
+        const c = applyMonthlyCap(medical, medication, 0, highCostLimit);
+        medical = c.medical;
+        medication = c.medication;
+    }
+
+    if (hasDisabilityCert) {
+        const grade = disabilityGrade || 'general';
+        let disabilityCap = Infinity;
+        if (grade === 'grade1-2') disabilityCap = 0;
+        else if (grade === 'grade3') disabilityCap = 1000;
+        if (disabilityCap !== Infinity) {
+            const beforeCap = medical + medication;
+            if (beforeCap > disabilityCap) {
+                const c = applyMonthlyCap(medical, medication, 0, disabilityCap);
+                medical = c.medical;
+                medication = c.medication;
+            }
+        }
+    }
+
+    return { medical, medication, nursing };
+}
+
 function getManagementPoints(location, section, visitFreq, patientStatus, clinicMeets20, buildingPatientTier) {
     const locKey = location === 'home' ? 'home' : 'facility';
     const sectionRates = FEE_2026.management[locKey][section];
@@ -225,32 +355,48 @@ function calcTotal(p) {
     const pts = calcPoints(p);
     const med10 = pts * 10;
     const medDrug10 = p.medTotal10 || 0;
-    const rawMed = Math.round(med10 * p.ratio);
-    const rawDrug = Math.round(medDrug10 * p.ratio);
-    let nursing = 0;
+    const ratio = p.ratio;
+    const rawMed = Math.round(med10 * ratio);
+    const rawDrug = Math.round(medDrug10 * ratio);
+    let nursingUnits = 0;
+    let rawNursing = 0;
     if (p.useNursing) {
-        const u = (p.location === 'home' ? 298 : 286) * Math.min(2, p.visitFreq);
-        nursing = Math.round(u * 10 * (p.nursingRatio || 0.1));
+        nursingUnits = (p.location === 'home' ? 298 : 286) * Math.min(2, p.visitFreq);
+        rawNursing = Math.round(nursingUnits * 10 * (p.nursingRatio || 0.1));
     }
-    let medical = rawMed, medication = rawDrug, n = nursing;
 
-    if (p.publicExpense === 'nanbyou') {
-        const nr = Math.min(0.2, p.ratio);
-        medical = Math.round(med10 * nr);
-        medication = Math.round(medDrug10 * nr);
-        n = Math.round((p.useNursing ? (p.location === 'home' ? 298 : 286) * Math.min(2, p.visitFreq) * 10 : 0) * Math.min(0.2, p.nursingRatio || 0.1));
-        const cap = p.nanbyouCap ?? 10000;
-        const c = applyMonthlyCap(medical, medication, n, cap);
-        medical = c.medical; medication = c.medication; n = c.nursing;
-    } else if (p.publicExpense === 'none') {
-        const limit = getHighCostLimit(p.age, p.incomeKey, med10 + medDrug10);
-        const combined = medical + medication;
-        if (combined > limit) {
-            const c = applyMonthlyCap(medical, medication, 0, limit);
-            medical = c.medical; medication = c.medication;
-        }
-    }
-    return { pts, total: medical + medication + n, medical, medication, nursing: n };
+    const pe = applyPublicExpenseCore({
+        publicExpense: p.publicExpense || 'none',
+        medicalTotal10: med10,
+        medTotal10: medDrug10,
+        medicalRatio: ratio,
+        nursingRatio: p.nursingRatio || 0.1,
+        nursingUnits,
+        rawMedicalCopay: rawMed,
+        rawMedCopay: rawDrug,
+        rawNursingCopay: rawNursing,
+        age: p.age,
+        incomeKey: p.incomeKey,
+        visitFreq: p.visitFreq,
+        emergencyVisits: p.emergencyVisits || 0,
+        hasDisabilityCert: p.hasDisabilityCert,
+        disabilityGrade: p.disabilityGrade,
+        nanbyouLimit: p.nanbyouLimit,
+        nanbyouVentilator: p.nanbyouVentilator,
+        nanbyouLongTerm: p.nanbyouLongTerm,
+        jiritsuLimit: p.jiritsuLimit,
+        jiritsuCoveragePct: p.jiritsuCoveragePct,
+        localSubsidyType: p.localSubsidyType,
+        localCoverNursing: p.localCoverNursing
+    });
+
+    return {
+        pts,
+        total: pe.medical + pe.medication + pe.nursing,
+        medical: pe.medical,
+        medication: pe.medication,
+        nursing: pe.nursing
+    };
 }
 
 const tests = [
@@ -343,8 +489,100 @@ const tests = [
         name: '指定難病2割・上限10000',
         p: { location: 'home', clinicType: 'kinou-kyouka', visitFreq: 2, patientStatus: 'no', clinicMeets20: true,
             homeGuidance: 'oxygen', hasPrescription: true, emergencyVisits: 0, ratio: 0.3, useNursing: true,
-            nursingRatio: 0.1, medTotal10: 10000, publicExpense: 'nanbyou', nanbyouCap: 10000, age: '69', incomeKey: 'u70-c' },
+            nursingRatio: 0.1, medTotal10: 10000, publicExpense: 'nanbyou', nanbyouLimit: '10000', age: '69', incomeKey: 'u70-c' },
         expectTotal: 10000
+    },
+    {
+        name: '生活保護・自己負担0円',
+        p: { location: 'home', clinicType: 'kinou-kyouka', visitFreq: 2, patientStatus: 'no', clinicMeets20: true,
+            homeGuidance: 'oxygen', hasPrescription: true, emergencyVisits: 0, ratio: 0.3, useNursing: true,
+            nursingRatio: 0.1, medTotal10: 10000, publicExpense: 'welfare', age: '69', incomeKey: 'u70-c' },
+        expectTotal: 0
+    },
+    {
+        name: '指定難病・1割維持（上限未達）',
+        p: { location: 'home', clinicType: 'kinou-kyouka', visitFreq: 2, patientStatus: 'no', clinicMeets20: true,
+            homeGuidance: 'none', hasPrescription: true, emergencyVisits: 0, ratio: 0.1, useNursing: false,
+            medTotal10: 5000, publicExpense: 'nanbyou', nanbyouLimit: '10000', age: '75', incomeKey: 'o70-general' },
+        expectTotal: Math.round((890 * 2 + 4085 + 68) * 10 * 0.1) + Math.round(5000 * 0.1)
+    },
+    {
+        name: '指定難病・高額かつ長期（一般所得Ⅰ→5000）',
+        p: { location: 'home', clinicType: 'kinou-kyouka', visitFreq: 2, patientStatus: 'no', clinicMeets20: true,
+            homeGuidance: 'oxygen', hasPrescription: true, emergencyVisits: 0, ratio: 0.3, useNursing: true,
+            nursingRatio: 0.1, medTotal10: 10000, publicExpense: 'nanbyou', nanbyouLimit: '10000',
+            nanbyouLongTerm: true, age: '69', incomeKey: 'u70-c' },
+        expectTotal: 5000
+    },
+    {
+        name: '指定難病・人工呼吸器（上限1000）',
+        p: { location: 'home', clinicType: 'kinou-kyouka', visitFreq: 2, patientStatus: 'no', clinicMeets20: true,
+            homeGuidance: 'oxygen', hasPrescription: true, emergencyVisits: 0, ratio: 0.3, useNursing: true,
+            nursingRatio: 0.1, medTotal10: 10000, publicExpense: 'nanbyou', nanbyouLimit: '10000',
+            nanbyouVentilator: true, age: '69', incomeKey: 'u70-c' },
+        expectTotal: 1000
+    },
+    {
+        name: '自立支援・全額対象・上限5000・介護別',
+        p: { location: 'home', clinicType: 'kinou-kyouka', visitFreq: 2, patientStatus: 'no', clinicMeets20: true,
+            homeGuidance: 'none', hasPrescription: true, emergencyVisits: 0, ratio: 0.3, useNursing: true,
+            nursingRatio: 0.1, medTotal10: 10000, publicExpense: 'jiritsu', jiritsuLimit: '5000',
+            jiritsuCoveragePct: 100, age: '69', incomeKey: 'u70-c' },
+        expectTotal: 5000 + 596
+    },
+    {
+        name: '自立支援・50%対象・残り3割',
+        p: { location: 'home', clinicType: 'kinou-kyouka', visitFreq: 2, patientStatus: 'no', clinicMeets20: true,
+            homeGuidance: 'none', hasPrescription: true, emergencyVisits: 0, ratio: 0.3, useNursing: false,
+            medTotal10: 10000, publicExpense: 'jiritsu', jiritsuLimit: 'none',
+            jiritsuCoveragePct: 50, age: '69', incomeKey: 'u70-c' },
+        expectTotal: (() => {
+            const med10 = (890 * 2 + 4085 + 68) * 10;
+            const drug10 = 10000;
+            const jMed = Math.round(med10 * 0.5 * 0.1) + Math.round(med10 * 0.5 * 0.3);
+            const jDrug = Math.round(drug10 * 0.5 * 0.1) + Math.round(drug10 * 0.5 * 0.3);
+            return jMed + jDrug;
+        })()
+    },
+    {
+        name: '自治体助成・自己負担0円',
+        p: { location: 'home', clinicType: 'kinou-kyouka', visitFreq: 2, patientStatus: 'no', clinicMeets20: true,
+            homeGuidance: 'none', hasPrescription: true, emergencyVisits: 0, ratio: 0.3, useNursing: true,
+            nursingRatio: 0.1, medTotal10: 10000, publicExpense: 'local-subsidy',
+            localSubsidyType: 'zero', localCoverNursing: true, age: '69', incomeKey: 'u70-c' },
+        expectTotal: 0
+    },
+    {
+        name: '自治体助成・1割+上限1000',
+        p: { location: 'home', clinicType: 'kinou-kyouka', visitFreq: 2, patientStatus: 'no', clinicMeets20: true,
+            homeGuidance: 'oxygen', hasPrescription: true, emergencyVisits: 0, ratio: 0.3, useNursing: false,
+            medTotal10: 10000, publicExpense: 'local-subsidy', localSubsidyType: 'ratio-cap-1000',
+            age: '69', incomeKey: 'u70-c' },
+        expectTotal: 1000
+    },
+    {
+        name: '自治体助成・1回500円×4訪問',
+        p: { location: 'home', clinicType: 'kinou-kyouka', visitFreq: 4, patientStatus: 'no', clinicMeets20: true,
+            homeGuidance: 'none', hasPrescription: true, emergencyVisits: 0, ratio: 0.3, useNursing: false,
+            medTotal10: 10000, publicExpense: 'local-subsidy', localSubsidyType: 'fixed-500',
+            age: '69', incomeKey: 'u70-c' },
+        expectTotal: 2000
+    },
+    {
+        name: '障害者手帳1-2級・自己負担0円',
+        p: { location: 'home', clinicType: 'kinou-kyouka', visitFreq: 2, patientStatus: 'no', clinicMeets20: true,
+            homeGuidance: 'none', hasPrescription: true, emergencyVisits: 0, ratio: 0.3, useNursing: false,
+            medTotal10: 10000, publicExpense: 'none', hasDisabilityCert: true, disabilityGrade: 'grade1-2',
+            age: '69', incomeKey: 'u70-c' },
+        expectTotal: 0
+    },
+    {
+        name: '障害者手帳3級・高額後1000円上限',
+        p: { location: 'home', clinicType: 'kinou-kyouka', visitFreq: 2, patientStatus: 'no', clinicMeets20: true,
+            homeGuidance: 'oxygen', hasPrescription: true, emergencyVisits: 0, ratio: 0.1, useNursing: false,
+            medTotal10: 100000, publicExpense: 'none', hasDisabilityCert: true, disabilityGrade: 'grade3',
+            age: '75', incomeKey: 'o70-general' },
+        expectTotal: 1000
     },
     {
         name: '緊急往診1回・機能強化型（720+750+75）',

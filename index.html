@@ -415,13 +415,28 @@
                                     <option value="30000">30,000円 (上位所得)</option>
                                 </select>
                             </div>
+                            <label class="checkbox-item inline-check">
+                                <input type="checkbox" id="nanbyou-long-term">
+                                <span>高額かつ長期該当（上限軽減: 一般所得Ⅰ→5,000円、Ⅱ→10,000円、上位→20,000円）</span>
+                            </label>
                             <div class="checkbox-item">
                                 <input type="checkbox" id="nanbyou-ventilator" value="yes">
                                 <label for="nanbyou-ventilator">人工呼吸器などを装着している（上限1,000円）</label>
                             </div>
+                            <span class="help-text">※3割負担の方は2割に軽減。医療・お薬・居宅療養管理指導費を合算して月上限を適用します（高額療養費とは別制度）。</span>
                         </div>
 
                         <div id="public-jiritsu-details" class="public-details-panel hidden">
+                            <div class="form-group">
+                                <label for="jiritsu-coverage">自立支援の対象となる診療の割合</label>
+                                <select id="jiritsu-coverage" class="form-control">
+                                    <option value="100" selected>100%（精神疾患が主病・診療費の全額が対象）</option>
+                                    <option value="75">約75%（精神疾患関連が大部分）</option>
+                                    <option value="50">約50%（併存疾患あり）</option>
+                                    <option value="25">約25%（精神疾患以外が主）</option>
+                                </select>
+                                <span class="help-text">※自立支援（精神通院）は精神障害及びそれに起因する病態の診療・お薬のみが対象です。該当分のみ1割＋上限を適用し、残りは通常の保険負担割合です。</span>
+                            </div>
                             <div class="form-group">
                                 <label for="jiritsu-limit">自立支援医療の月額自己負担上限額</label>
                                 <select id="jiritsu-limit" class="form-control">
@@ -441,6 +456,9 @@
                                 <label for="local-subsidy-type">助成の内容（自己負担分）</label>
                                 <select id="local-subsidy-type" class="form-control">
                                     <option value="zero" selected>医療・お薬の自己負担なし（0円）</option>
+                                    <option value="ratio-cap-1000">1割負担＋月上限1,000円（医療・お薬）</option>
+                                    <option value="ratio-cap-2000">1割負担＋月上限2,000円（医療・お薬）</option>
+                                    <option value="ratio-cap-5000">1割負担＋月上限5,000円（医療・お薬）</option>
                                     <option value="fixed-500">1回あたり500円のみ負担（医療・お薬）</option>
                                     <option value="fixed-1000">月額上限1,000円まで負担（医療・お薬）</option>
                                 </select>
@@ -449,6 +467,7 @@
                                 <input type="checkbox" id="local-nursing-subsidy">
                                 <span>介護保険（居宅療養管理指導）も助成対象</span>
                             </label>
+                            <span class="help-text">※自治体の重度障害者医療費助成等の典型パターンです。お住まいの市区町村の条例と異なる場合があります。</span>
                         </div>
 
                         <!-- 障害者手帳・認定 -->
@@ -458,7 +477,7 @@
                                 <option value="no" selected>該当なし</option>
                                 <option value="yes">身体障害者手帳をお持ち（または障害者認定あり）</option>
                             </select>
-                            <span class="help-text">※自治体の重度障害者医療費助成等と併用する場合があります。公費負担制度と重複しないようご注意ください。</span>
+                            <span class="help-text">※公費負担制度を「なし」にした場合のみ、手帳等級に応じた助成上限を試算に反映します。自治体助成を利用する場合は上の公費欄で「自治体助成」を選択してください。</span>
                         </div>
 
                         <div id="disability-details" class="public-details-panel hidden">

@@ -38,6 +38,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
     const publicJiritsuDetails = document.getElementById('public-jiritsu-details');
     const jiritsuLimitSelect = document.getElementById('jiritsu-limit');
+    const jiritsuCoverageSelect = document.getElementById('jiritsu-coverage');
+    const nanbyouLongTermCheck = document.getElementById('nanbyou-long-term');
 
     const publicLocalDetails = document.getElementById('public-local-details');
     const localSubsidyTypeSelect = document.getElementById('local-subsidy-type');
@@ -502,12 +504,40 @@ document.addEventListener('DOMContentLoaded', () => {
         return { totalPoints, breakdown, addonItems, guidanceLabel: guidance.label };
     }
 
+    const NANBYOU_CAP_BY_TIER = {
+        '0': { normal: 0, longTerm: 0 },
+        '2500': { normal: 2500, longTerm: 2500 },
+        '5000': { normal: 5000, longTerm: 5000 },
+        '10000': { normal: 10000, longTerm: 5000 },
+        '20000': { normal: 20000, longTerm: 10000 },
+        '30000': { normal: 30000, longTerm: 20000 }
+    };
+
+    function getNanbyouMonthlyCap(limitKey, ventilator, longTerm) {
+        if (ventilator) return 1000;
+        const tier = NANBYOU_CAP_BY_TIER[String(limitKey)] || NANBYOU_CAP_BY_TIER['10000'];
+        return longTerm ? tier.longTerm : tier.normal;
+    }
+
     function applyPublicExpense(params) {
         const {
             publicExpense, medicalTotal10, medTotal10, medicalRatio, nursingRatio,
             nursingUnits, rawMedicalCopay, rawMedCopay, rawNursingCopay,
-            age, incomeKey, visitFreq, emergencyVisits, hasDisabilityCert, disabilityGrade
+            age, incomeKey, visitFreq, emergencyVisits, hasDisabilityCert, disabilityGrade,
+            nanbyouLimit, nanbyouVentilator, nanbyouLongTerm,
+            jiritsuLimit, jiritsuCoveragePct,
+            localSubsidyType, localCoverNursing
         } = params;
+
+        const nbLimitKey = nanbyouLimit ?? nanbyouLimitSelect?.value ?? '10000';
+        const nbVentilator = nanbyouVentilator ?? !!nanbyouVentilatorCheck?.checked;
+        const nbLongTerm = nanbyouLongTerm ?? !!nanbyouLongTermCheck?.checked;
+        const jLimitVal = jiritsuLimit ?? jiritsuLimitSelect?.value ?? '5000';
+        const jCoveragePct = jiritsuCoveragePct
+            ?? parseInt(jiritsuCoverageSelect?.value || '100', 10);
+        const subsidyType = localSubsidyType ?? localSubsidyTypeSelect?.value ?? 'zero';
+        const coverNursing = localCoverNursing
+            ?? !!(localNursingSubsidyCheck && localNursingSubsidyCheck.checked);
 
         let medical = rawMedicalCopay;
         let medication = rawMedCopay;
@@ -533,9 +563,7 @@ document.addEventListener('DOMContentLoaded', () => {
             medication = Math.round(medTotal10 * nbRatio);
             nursing = Math.round(nursingUnits * 10 * nbNursingRatio);
 
-            let cap = parseFloat(nanbyouLimitSelect.value);
-            if (nanbyouVentilatorCheck.checked) cap = 1000;
-
+            const cap = getNanbyouMonthlyCap(nbLimitKey, nbVentilator, nbLongTerm);
             const capped = applyMonthlyCap(medical, medication, nursing, cap);
             medical = capped.medical;
             medication = capped.medication;
@@ -552,16 +580,27 @@ document.addEventListener('DOMContentLoaded', () => {
         if (publicExpense === 'jiritsu') {
             const rawTotalBefore = rawMedicalCopay + rawMedCopay;
             const jRatio = Math.min(0.1, medicalRatio);
-            medical = Math.round(medicalTotal10 * jRatio);
-            medication = Math.round(medTotal10 * jRatio);
+            const coverage = Math.min(1, Math.max(0, jCoveragePct / 100));
 
-            const limitVal = jiritsuLimitSelect.value;
-            if (limitVal !== 'none') {
-                const cap = parseFloat(limitVal === '5000-mid' ? 5000 : limitVal);
-                const capped = applyMonthlyCap(medical, medication, 0, cap);
-                medical = capped.medical;
-                medication = capped.medication;
+            const coveredMed10 = medicalTotal10 * coverage;
+            const uncoveredMed10 = medicalTotal10 * (1 - coverage);
+            const coveredDrug10 = medTotal10 * coverage;
+            const uncoveredDrug10 = medTotal10 * (1 - coverage);
+
+            let jMedical = Math.round(coveredMed10 * jRatio);
+            let jMedication = Math.round(coveredDrug10 * jRatio);
+            const uMedical = Math.round(uncoveredMed10 * medicalRatio);
+            const uMedication = Math.round(uncoveredDrug10 * medicalRatio);
+
+            if (jLimitVal !== 'none' && coverage > 0) {
+                const cap = parseFloat(jLimitVal === '5000-mid' ? 5000 : jLimitVal);
+                const capped = applyMonthlyCap(jMedical, jMedication, 0, cap);
+                jMedical = capped.medical;
+                jMedication = capped.medication;
             }
+
+            medical = jMedical + uMedical;
+            medication = jMedication + uMedication;
             publicLimitDeduction = rawTotalBefore - (medical + medication);
             if (publicLimitDeduction > 0) isPublicApplied = true;
 
@@ -572,9 +611,6 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         if (publicExpense === 'local-subsidy') {
-            const subsidyType = localSubsidyTypeSelect.value;
-            const coverNursing = localNursingSubsidyCheck && localNursingSubsidyCheck.checked;
-
             if (subsidyType === 'zero') {
                 publicLimitDeduction = medical + medication + (coverNursing ? nursing : 0);
                 medical = 0;
@@ -601,6 +637,17 @@ document.addEventListener('DOMContentLoaded', () => {
                     medication = capped.medication;
                     isPublicApplied = true;
                 }
+            } else if (subsidyType.startsWith('ratio-cap-')) {
+                const cap = parseInt(subsidyType.replace('ratio-cap-', ''), 10);
+                const subsidizedRatio = Math.min(0.1, medicalRatio);
+                const beforeCap = medical + medication;
+                const targetMed = Math.round(medicalTotal10 * subsidizedRatio);
+                const targetDrug = Math.round(medTotal10 * subsidizedRatio);
+                const capped = applyMonthlyCap(targetMed, targetDrug, 0, cap);
+                publicLimitDeduction = beforeCap - (capped.medical + capped.medication);
+                medical = capped.medical;
+                medication = capped.medication;
+                if (publicLimitDeduction > 0) isPublicApplied = true;
             }
 
             return {
@@ -791,7 +838,14 @@ document.addEventListener('DOMContentLoaded', () => {
             nursingUnits, rawMedicalCopay, rawMedCopay, rawNursingCopay,
             age, incomeKey, visitFreq, emergencyVisits,
             hasDisabilityCert: hasDisabilityCert && publicExpense === 'none',
-            disabilityGrade
+            disabilityGrade,
+            nanbyouLimit: nanbyouLimitSelect?.value,
+            nanbyouVentilator: nanbyouVentilatorCheck?.checked,
+            nanbyouLongTerm: nanbyouLongTermCheck?.checked,
+            jiritsuLimit: jiritsuLimitSelect?.value,
+            jiritsuCoveragePct: parseInt(jiritsuCoverageSelect?.value || '100', 10),
+            localSubsidyType: localSubsidyTypeSelect?.value,
+            localCoverNursing: localNursingSubsidyCheck?.checked
         });
 
         const finalPatientTotal = result.medical + result.nursing + result.medication;
@@ -921,17 +975,26 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         if (publicExpense === 'nanbyou') {
-            items.push('<strong>指定難病</strong>: 自己負担2割（1割の方は1割維持）。医療・お薬・居宅療養管理指導の<strong>合算上限</strong>が適用されます。');
+            const longTermNote = nanbyouLongTermCheck?.checked
+                ? '高額かつ長期該当の軽減上限を適用しています。'
+                : '';
+            items.push(`<strong>指定難病</strong>: 自己負担2割（1割の方は1割維持）。医療・お薬・居宅療養管理指導の<strong>合算上限</strong>が適用されます。${longTermNote}`);
         } else if (publicExpense === 'welfare') {
             items.push('<strong>生活保護</strong>: 医療扶助・介護扶助により自己負担0円。');
         } else if (publicExpense === 'jiritsu') {
-            items.push('<strong>自立支援医療</strong>: 対象精神疾患等の診療・お薬が1割＋月額上限。居宅療養管理指導（介護）は対象外です。');
+            const cov = parseInt(jiritsuCoverageSelect?.value || '100', 10);
+            const covNote = cov < 100
+                ? `精神疾患関連の診療を<strong>約${cov}%</strong>とみなし、該当分のみ1割＋上限を適用。それ以外は保険割合のままです。`
+                : '精神疾患が主病で診療費の全額が対象となる想定です。';
+            items.push(`<strong>自立支援医療</strong>: ${covNote}居宅療養管理指導（介護）は対象外で、介護保険の自己負担が別途かかります。`);
         } else if (publicExpense === 'local-subsidy') {
-            items.push('<strong>自治体助成</strong>: 市区町村の重度障害者医療等助成。内容は自治体により異なります。');
+            items.push('<strong>自治体助成</strong>: 市区町村の重度障害者医療等助成の典型パターンから選択しています。実際の助成内容は自治体により異なります。');
         }
 
-        if (hasDisabilityCert) {
-            items.push('<strong>障害者手帳</strong>: 自治体助成と公費選択が重複する場合があります。');
+        if (hasDisabilityCert && publicExpense === 'none') {
+            items.push('<strong>障害者手帳</strong>: 公費「なし」選択時のみ、手帳等級に応じた助成上限（1・2級0円／3級1,000円）を高額療養費の後に適用しています。自治体助成と併用する場合は「自治体助成」を選んでください。');
+        } else if (hasDisabilityCert) {
+            items.push('<strong>障害者手帳</strong>: 公費制度を選択中のため、手帳による助成は計算に含めていません。');
         }
 
         if (hasPrescription) {
@@ -1146,7 +1209,9 @@ document.addEventListener('DOMContentLoaded', () => {
 
     nanbyouLimitSelect.addEventListener('change', updateCalculations);
     nanbyouVentilatorCheck.addEventListener('change', updateCalculations);
+    if (nanbyouLongTermCheck) nanbyouLongTermCheck.addEventListener('change', updateCalculations);
     jiritsuLimitSelect.addEventListener('change', updateCalculations);
+    if (jiritsuCoverageSelect) jiritsuCoverageSelect.addEventListener('change', updateCalculations);
     localSubsidyTypeSelect.addEventListener('change', updateCalculations);
     if (localNursingSubsidyCheck) localNursingSubsidyCheck.addEventListener('change', updateCalculations);
 

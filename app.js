@@ -114,9 +114,27 @@ document.addEventListener('DOMContentLoaded', () => {
         noPrescriptionBonus: 300,
         management: {
             home: {
-                section1: { severeMulti: 4985, multi: 4085, single: 2505 },
-                section2: { severeMulti: 4585, multi: 3685, single: 2285 },
-                section3: { severeMulti: 3435, multi: 2735, single: 1745 }
+                section1: {
+                    tier1: { severeMulti: 4985, multi: 4085, single: 2505 },
+                    tier2_9: { severeMulti: 4125, multi: 2185, single: 1365 },
+                    tier10_19: { severeMulti: 2625, multi: 1085, single: 705 },
+                    tier20_49: { severeMulti: 2205, multi: 970, single: 615 },
+                    tier50plus: { severeMulti: 1935, multi: 825, single: 525 }
+                },
+                section2: {
+                    tier1: { severeMulti: 4585, multi: 3685, single: 2285 },
+                    tier2_9: { severeMulti: 3765, multi: 1985, single: 1265 },
+                    tier10_19: { severeMulti: 2385, multi: 985, single: 665 },
+                    tier20_49: { severeMulti: 2010, multi: 875, single: 570 },
+                    tier50plus: { severeMulti: 1765, multi: 745, single: 490 }
+                },
+                section3: {
+                    tier1: { severeMulti: 3435, multi: 2735, single: 1745 },
+                    tier2_9: { severeMulti: 2820, multi: 1460, single: 980 },
+                    tier10_19: { severeMulti: 1785, multi: 735, single: 545 },
+                    tier20_49: { severeMulti: 1500, multi: 655, single: 455 },
+                    tier50plus: { severeMulti: 1315, multi: 555, single: 395 }
+                }
             },
             facility: {
                 section1: {
@@ -324,10 +342,28 @@ document.addEventListener('DOMContentLoaded', () => {
         };
     }
 
+    function getCancerCareRates(section) {
+        if (section === 'section1') return FEE_2026.cancerCare.section1;
+        const base = FEE_2026.cancerCare.section2;
+        if (section === 'section3') {
+            return {
+                withRx: Math.round(base.withRx * FEE_2026.section3ManageRatio),
+                withoutRx: Math.round(base.withoutRx * FEE_2026.section3ManageRatio)
+            };
+        }
+        return base;
+    }
+
+    function getVisitPoints(location, visitFreq, over12Avg) {
+        const unit = FEE_2026.visit[location === 'home' ? 'home' : 'facility'];
+        if (!over12Avg || visitFreq <= 4) return unit * visitFreq;
+        return unit * 4 + Math.round(unit * (visitFreq - 4) * 0.5);
+    }
+
     function calculateAddonPoints(params) {
         const {
             applyCancerCare, clinicType, visitFreq, cancerCareWeeks, emergencyVisits,
-            addonFlags, location, hasPrescription
+            addonFlags, location, hasPrescription, patientStatus
         } = params;
         const A = FEE_2026.addons;
         const items = [];
@@ -353,7 +389,7 @@ document.addEventListener('DOMContentLoaded', () => {
             if (addonFlags.dataSubmit) push('在宅データ提出加算', A.dataSubmit);
             if (addonFlags.earlyTransition) push('在宅移行早期加算', A.earlyTransition);
             if (addonFlags.onlineMgmt) push('オンライン在宅管理料', A.onlineMgmt);
-            if (visitFreq >= 4 && addonFlags.autoFrequentVisit) {
+            if (visitFreq >= 4 && addonFlags.autoFrequentVisit && patientStatus === 'severe') {
                 push('頻回訪問加算（初回・月4回以上）', A.frequentVisitFirst);
             }
             if (addonFlags.continuingCare && clinicType === 'other-clinic') {
@@ -392,7 +428,7 @@ document.addEventListener('DOMContentLoaded', () => {
             push('往診時医療情報連携加算', emergencyVisits * A.emergencyInfoRenkei);
         }
 
-        if (!applyCancerCare && location === 'home' && addonFlags.pharmacistJoint) {
+        if (!applyCancerCare && location === 'home' && clinicType !== 'other-clinic' && addonFlags.pharmacistJoint) {
             push('訪問診療薬剤師同時指導料', A.pharmacistJoint);
         }
 
@@ -419,10 +455,8 @@ document.addEventListener('DOMContentLoaded', () => {
     function getManagementPoints(location, section, visitFreq, patientStatus, clinicMeets20, buildingPatientTier) {
         const locKey = location === 'home' ? 'home' : 'facility';
         const sectionRates = FEE_2026.management[locKey][section];
-        const tierKey = locKey === 'facility' ? (buildingPatientTier || 'tier1') : null;
-        const rates = locKey === 'facility'
-            ? (sectionRates[tierKey] || sectionRates.tier1)
-            : sectionRates;
+        const tierKey = buildingPatientTier || 'tier1';
+        const rates = sectionRates[tierKey] || sectionRates.tier1;
 
         let useMulti = visitFreq >= 2;
         if (useMulti && !clinicMeets20) useMulti = false;
@@ -449,7 +483,8 @@ document.addEventListener('DOMContentLoaded', () => {
         const {
             applyCancerCare, clinicType, hasPrescription, cancerCareWeeks,
             location, visitFreq, emergencyVisits, nightHolidayVisits, lateNightVisits,
-            homeGuidanceType, patientStatus, clinicMeets20, buildingPatientTier, addonFlags
+            homeGuidanceType, patientStatus, clinicMeets20, buildingPatientTier, addonFlags,
+            over12Avg
         } = params;
 
         const section = CLINIC_SECTION[clinicType] || 'section2';
@@ -457,13 +492,11 @@ document.addEventListener('DOMContentLoaded', () => {
         let addonItems = [];
 
         if (applyCancerCare) {
-            const rates = section === 'section1'
-                ? FEE_2026.cancerCare.section1
-                : FEE_2026.cancerCare.section2;
+            const rates = getCancerCareRates(section);
             breakdown.cancer = (hasPrescription ? rates.withRx : rates.withoutRx) * cancerCareWeeks;
             const addonResult = calculateAddonPoints({
                 applyCancerCare, clinicType, visitFreq, cancerCareWeeks, emergencyVisits: 0,
-                addonFlags, location, hasPrescription
+                addonFlags, location, hasPrescription, patientStatus
             });
             breakdown.addons = addonResult.total;
             addonItems = addonResult.items;
@@ -471,7 +504,7 @@ document.addEventListener('DOMContentLoaded', () => {
             return { totalPoints, breakdown, addonItems, guidanceLabel: '在がん総に包括' };
         }
 
-        breakdown.visit = FEE_2026.visit[location === 'home' ? 'home' : 'facility'] * visitFreq;
+        breakdown.visit = getVisitPoints(location, visitFreq, over12Avg);
         breakdown.management = getManagementPoints(
             location, section, visitFreq, patientStatus, clinicMeets20, buildingPatientTier
         );
@@ -493,7 +526,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
         const addonResult = calculateAddonPoints({
             applyCancerCare, clinicType, visitFreq, cancerCareWeeks, emergencyVisits,
-            addonFlags, location, hasPrescription
+            addonFlags, location, hasPrescription, patientStatus
         });
         breakdown.addons = addonResult.total;
         addonItems = addonResult.items;
@@ -708,10 +741,8 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function toggleFacilityPatientTierUI() {
-        const location = document.querySelector('input[name="location"]:checked')?.value || 'home';
-        const showTier = location === 'facility';
         if (facilityPatientTierGroup) {
-            facilityPatientTierGroup.classList.toggle('hidden', !showTier);
+            facilityPatientTierGroup.classList.remove('hidden');
         }
     }
 
@@ -737,7 +768,8 @@ document.addEventListener('DOMContentLoaded', () => {
         }
         const location = document.querySelector('input[name="location"]:checked')?.value || 'home';
         if (addonPharmacistRow) {
-            addonPharmacistRow.style.display = !applyCancer && location === 'home' ? 'flex' : 'none';
+            const showPharmacist = !applyCancer && location === 'home' && clinicTypeSelect.value !== 'other-clinic';
+            addonPharmacistRow.style.display = showPharmacist ? 'flex' : 'none';
         }
         if (addonTerminalGroup) {
             addonTerminalGroup.classList.toggle('hidden', applyCancer);
@@ -799,6 +831,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const patientStatus = patientSevereSelect ? patientSevereSelect.value : 'no';
         const clinicMeets20 = !clinicSevere20Check || clinicSevere20Check.checked;
         const buildingPatientTier = facilityBuildingPatientsSelect?.value || 'tier1';
+        const over12Avg = !!document.getElementById('visit-over-12-avg')?.checked;
 
         const hasPrescription = hasPrescriptionSelect.value === 'yes';
         const medTotal10 = getMedicationTotal10();
@@ -814,7 +847,8 @@ document.addEventListener('DOMContentLoaded', () => {
         const { totalPoints, breakdown, addonItems, guidanceLabel } = calculateMedicalPoints({
             applyCancerCare, clinicType, hasPrescription, cancerCareWeeks,
             location, visitFreq, emergencyVisits, nightHolidayVisits, lateNightVisits,
-            homeGuidanceType, patientStatus, clinicMeets20, buildingPatientTier, addonFlags
+            homeGuidanceType, patientStatus, clinicMeets20, buildingPatientTier, addonFlags,
+            over12Avg
         });
 
         const medicalTotal10 = totalPoints * 10;
@@ -887,7 +921,7 @@ document.addEventListener('DOMContentLoaded', () => {
         updateAdvice({
             age, useNursing, publicExpense, hasPrescription, visitFreq, emergencyVisits,
             applyCancerCare, hasDisabilityCert, homeGuidanceType, clinicMeets20, patientStatus, clinicType,
-            buildingPatientTier, addonItems, addonFlags
+            buildingPatientTier, addonItems, addonFlags, over12Avg, location
         });
         updatePrintData({
             age, medicalRatio, location, incomeKey, visitFreq, emergencyVisits,
@@ -931,7 +965,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const {
             age, useNursing, publicExpense, hasPrescription, visitFreq, emergencyVisits,
             applyCancerCare, hasDisabilityCert, homeGuidanceType, clinicMeets20, patientStatus, clinicType,
-            buildingPatientTier, addonItems, addonFlags
+            buildingPatientTier, addonItems, addonFlags, over12Avg, location
         } = ctx;
         const isSenior = age === '75' || age === '70';
         const items = [];
@@ -959,13 +993,20 @@ document.addEventListener('DOMContentLoaded', () => {
             items.push('<strong>一般診療所</strong>: 在医総管・施設総管は2026年改定により<strong>80%に減算</strong>されます（C002通知25）。');
         }
 
-        if (!applyCancerCare && document.querySelector('input[name="location"]:checked')?.value === 'facility') {
+        if (!applyCancerCare) {
             const tierLabel = BUILDING_PATIENT_TIER_LABELS[buildingPatientTier] || '1人';
-            items.push(`<strong>施設入居時等医学総合管理料</strong>: 同一建物診療患者数 <strong>${tierLabel}</strong> 区分で算定しています。人数が多いほど管理料の点数は低くなります。`);
+            const mgmtLabel = location === 'facility'
+                ? '施設入居時等医学総合管理料'
+                : '在宅時医学総合管理料';
+            items.push(`<strong>${mgmtLabel}</strong>: 同一建物診療患者数 <strong>${tierLabel}</strong> 区分で算定しています。人数が多いほど管理料の点数は低くなります。`);
+        }
+
+        if (over12Avg && visitFreq > 4 && !applyCancerCare) {
+            items.push('<strong>月12回超減算</strong>: 過去3ヶ月平均が月12回超の場合、当月5回目以降の訪問診療料は50%に減算されています。');
         }
 
         if (isSenior) {
-            items.push('<strong>高額療養費（70歳以上）</strong>: 医療保険＋お薬代の「外来（個人）」上限が適用（一般18,000円/月、非課税8,000円/月）。<strong>介護保険分は別</strong>です。');
+            items.push('<strong>高額療養費（70歳以上）</strong>: 医療保険＋お薬代の「外来（個人）」上限が適用（一般18,000円/月、非課税8,000円/月）。<strong>介護保険分は別</strong>です。世帯上限はモーダル参照のとおり別途ありますが、本シミュレーターでは個人上限のみ反映しています。');
         } else {
             items.push('<strong>高額療養費（70歳未満）</strong>: 医療保険＋お薬代が所得区分の世帯上限の対象。介護保険は別制度です。');
         }
@@ -1024,8 +1065,10 @@ document.addEventListener('DOMContentLoaded', () => {
             items.push('<strong>診療加算</strong>: クリニックの届出・算定状況により加算が加わります。「クリニックの加算・評価」から該当項目を選択してください。');
         }
 
-        if (visitFreq >= 4 && addonFlags?.autoFrequentVisit && !applyCancerCare) {
-            items.push('<strong>頻回訪問加算</strong>: 月4回以上の訪問で初回800点が自動加算されています（別表8-2等の対象患者）。');
+        if (visitFreq >= 4 && addonFlags?.autoFrequentVisit && patientStatus === 'severe' && !applyCancerCare) {
+            items.push('<strong>頻回訪問加算</strong>: 別表8-2（重症患者）かつ月4回以上の訪問で初回800点が加算されています。');
+        } else if (visitFreq >= 4 && addonFlags?.autoFrequentVisit && patientStatus !== 'severe' && !applyCancerCare) {
+            items.push('<strong>頻回訪問加算</strong>: 別表第三の一の三（特別な管理が必要な患者）に該当する場合のみ算定可です。別表8-2を選択してください。');
         }
 
         adviceContent.innerHTML = `<ul>${items.map(t => `<li>${t}</li>`).join('')}</ul>`;
@@ -1055,7 +1098,7 @@ document.addEventListener('DOMContentLoaded', () => {
         document.getElementById('print-copay').textContent = `${Math.round(medicalRatio * 10)}割負担`;
         const tierLabel = BUILDING_PATIENT_TIER_LABELS[buildingPatientTier] || '1人';
         document.getElementById('print-location').textContent = location === 'home'
-            ? '自宅'
+            ? `自宅・同一建物（診療患者${tierLabel}）`
             : `施設・同一建物（診療患者${tierLabel}）`;
         document.getElementById('print-clinic').textContent = clinicLabels[clinicType] || '';
 
@@ -1099,7 +1142,8 @@ document.addEventListener('DOMContentLoaded', () => {
             'addon-info-renkei', 'addon-data-submit', 'addon-early-transition',
             'addon-online-mgmt', 'addon-nursing-instruction', 'addon-special-nursing',
             'addon-continuing-care', 'addon-emergency-info', 'addon-auto-frequent',
-            'addon-pharmacist-joint', 'addon-miokuri', 'addon-bukka', 'addon-base-up'
+            'addon-pharmacist-joint', 'addon-miokuri', 'addon-bukka', 'addon-base-up',
+            'visit-over-12-avg'
         ];
         addonIds.forEach(id => {
             const el = document.getElementById(id);

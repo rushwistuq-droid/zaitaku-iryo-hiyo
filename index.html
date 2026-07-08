@@ -108,8 +108,8 @@
                             </div>
                         </div>
 
-                        <div class="form-group hidden" id="facility-patient-tier-group">
-                            <label for="facility-building-patients">同一建物の診療患者数（施設入居時等医学総合管理料の区分）</label>
+                        <div class="form-group" id="facility-patient-tier-group">
+                            <label for="facility-building-patients">同一建物の診療患者数（在医総管・施医総管の区分）</label>
                             <select id="facility-building-patients" class="form-control">
                                 <option value="tier1" selected>1人</option>
                                 <option value="tier2_9">2〜9人</option>
@@ -117,7 +117,7 @@
                                 <option value="tier20_49">20〜49人</option>
                                 <option value="tier50plus">50人以上</option>
                             </select>
-                            <span class="help-text">※当該建物で施医総管（在医総管）を算定する患者の合計人数です。人数が多いほど管理料の点数は低くなります。</span>
+                            <span class="help-text">※当該建物で在医総管（自宅）または施医総管（施設）を算定する患者の合計人数です。マンション等で複数患者を診療する場合は人数が多いほど管理料の点数は低くなります。</span>
                         </div>
 
                         <!-- 診療所種別（2026年度改定） -->
@@ -180,6 +180,10 @@
                                 </div>
                                 <span class="help-text">※月12回超の平均訪問（過去3ヶ月）には減算が適用される場合があります。</span>
                             </div>
+                            <label class="checkbox-item inline-check" style="margin-top: 8px;">
+                                <input type="checkbox" id="visit-over-12-avg">
+                                <span>過去3ヶ月平均が月12回超（5回目以降の訪問診療料を50%減算）</span>
+                            </label>
 
                             <!-- 往診回数 -->
                             <div class="form-group">
@@ -337,7 +341,7 @@
                             </label>
                             <label class="checkbox-item">
                                 <input type="checkbox" id="addon-auto-frequent">
-                                <span>頻回訪問加算を自動算定（+800点・月4回以上訪問時）</span>
+                                <span>頻回訪問加算を自動算定（+800点・別表8-2かつ月4回以上）</span>
                             </label>
                             <label class="checkbox-item" id="addon-pharmacist-row" style="display:none">
                                 <input type="checkbox" id="addon-pharmacist-joint">
@@ -697,8 +701,9 @@
         </div>
 
         <footer class="app-footer">
-            <p>※本シミュレーターは令和8年度（2026年6月施行）診療報酬改定に基づく概算です。</p>
-            <p>加算・減算、時間外往診、在宅医療充実体制加算、地域区分等により実際の請求額は異なります。交通費等の保険外費用は含みません。</p>
+            <p>※本シミュレーターは令和8年度（2026年6月施行）診療報酬改定に基づく<strong>患者向け概算ツール</strong>です。実際の請求・自己負担額の確定にはなりません。</p>
+            <p>加算・減算、時間外往診、在宅医療充実体制加算、地域区分、公費・自治体助成の細目等により実際の金額は異なります。交通費・文書料等の保険外費用は含みません。</p>
+            <p>医療費の最終判断は担当医療機関・保険者・自治体にお問い合わせください。本ツールは医療アドバイス・診断を提供するものではありません。</p>
             <p class="copyright">&copy; 2026 在宅医療費用説明システム</p>
         </footer>
     </div>

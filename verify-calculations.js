@@ -25,9 +25,27 @@ const FEE_2026 = {
     noPrescriptionBonus: 300,
     management: {
         home: {
-            section1: { severeMulti: 4985, multi: 4085, single: 2505 },
-            section2: { severeMulti: 4585, multi: 3685, single: 2285 },
-            section3: { severeMulti: 3435, multi: 2735, single: 1745 }
+            section1: {
+                tier1: { severeMulti: 4985, multi: 4085, single: 2505 },
+                tier2_9: { severeMulti: 4125, multi: 2185, single: 1365 },
+                tier10_19: { severeMulti: 2625, multi: 1085, single: 705 },
+                tier20_49: { severeMulti: 2205, multi: 970, single: 615 },
+                tier50plus: { severeMulti: 1935, multi: 825, single: 525 }
+            },
+            section2: {
+                tier1: { severeMulti: 4585, multi: 3685, single: 2285 },
+                tier2_9: { severeMulti: 3765, multi: 1985, single: 1265 },
+                tier10_19: { severeMulti: 2385, multi: 985, single: 665 },
+                tier20_49: { severeMulti: 2010, multi: 875, single: 570 },
+                tier50plus: { severeMulti: 1765, multi: 745, single: 490 }
+            },
+            section3: {
+                tier1: { severeMulti: 3435, multi: 2735, single: 1745 },
+                tier2_9: { severeMulti: 2820, multi: 1460, single: 980 },
+                tier10_19: { severeMulti: 1785, multi: 735, single: 545 },
+                tier20_49: { severeMulti: 1500, multi: 655, single: 455 },
+                tier50plus: { severeMulti: 1315, multi: 555, single: 395 }
+            }
         },
         facility: {
             section1: {
@@ -268,13 +286,29 @@ function applyPublicExpenseCore(params) {
     return { medical, medication, nursing };
 }
 
+function getCancerCareRates(section) {
+    if (section === 'section1') return FEE_2026.cancerCare.section1;
+    const base = FEE_2026.cancerCare.section2;
+    if (section === 'section3') {
+        return {
+            withRx: Math.round(base.withRx * FEE_2026.section3ManageRatio),
+            withoutRx: Math.round(base.withoutRx * FEE_2026.section3ManageRatio)
+        };
+    }
+    return base;
+}
+
+function getVisitPoints(location, visitFreq, over12Avg) {
+    const unit = FEE_2026.visit[location === 'home' ? 'home' : 'facility'];
+    if (!over12Avg || visitFreq <= 4) return unit * visitFreq;
+    return unit * 4 + Math.round(unit * (visitFreq - 4) * 0.5);
+}
+
 function getManagementPoints(location, section, visitFreq, patientStatus, clinicMeets20, buildingPatientTier) {
     const locKey = location === 'home' ? 'home' : 'facility';
     const sectionRates = FEE_2026.management[locKey][section];
-    const tierKey = locKey === 'facility' ? (buildingPatientTier || 'tier1') : null;
-    const rates = locKey === 'facility'
-        ? (sectionRates[tierKey] || sectionRates.tier1)
-        : sectionRates;
+    const tierKey = buildingPatientTier || 'tier1';
+    const rates = sectionRates[tierKey] || sectionRates.tier1;
     let useMulti = visitFreq >= 2;
     if (useMulti && !clinicMeets20) useMulti = false;
     let pts;
@@ -300,7 +334,7 @@ function calculateAddonPoints(p) {
         if (f.dataSubmit) push(A.dataSubmit);
         if (f.earlyTransition) push(A.earlyTransition);
         if (f.onlineMgmt) push(A.onlineMgmt);
-        if (p.visitFreq >= 4 && f.autoFrequentVisit !== false) push(A.frequentVisitFirst);
+        if (p.visitFreq >= 4 && f.autoFrequentVisit !== false && p.patientStatus === 'severe') push(A.frequentVisitFirst);
         if (f.continuingCare && p.clinicType === 'other-clinic') push(A.continuingCare);
     } else {
         if (f.infoRenkei) push(A.infoRenkei);
@@ -320,7 +354,7 @@ function calculateAddonPoints(p) {
     if (p.emergencyVisits > 0 && f.emergencyInfoRenkei) {
         push(p.emergencyVisits * A.emergencyInfoRenkei);
     }
-    if (!p.applyCancerCare && p.location === 'home' && f.pharmacistJoint) push(A.pharmacistJoint);
+    if (!p.applyCancerCare && p.location === 'home' && p.clinicType !== 'other-clinic' && f.pharmacistJoint) push(A.pharmacistJoint);
     if (!p.applyCancerCare && f.terminalCare && f.terminalCare !== 'none') {
         push(A.terminalCare[f.terminalCare]);
     }
@@ -331,11 +365,11 @@ function calculateAddonPoints(p) {
 function calcPoints(p) {
     const section = CLINIC_SECTION[p.clinicType] || 'section2';
     if (p.applyCancerCare) {
-        const r = section === 'section1' ? FEE_2026.cancerCare.section1 : FEE_2026.cancerCare.section2;
+        const r = getCancerCareRates(section);
         return (p.hasPrescription ? r.withRx : r.withoutRx) * p.cancerCareWeeks + calculateAddonPoints(p);
     }
     const loc = p.location === 'home' ? 'home' : 'facility';
-    let pts = FEE_2026.visit[loc] * p.visitFreq;
+    let pts = getVisitPoints(p.location, p.visitFreq, p.over12Avg);
     pts += getManagementPoints(
         p.location, section, p.visitFreq, p.patientStatus, p.clinicMeets20, p.buildingPatientTier
     );
@@ -614,12 +648,20 @@ const tests = [
         expectPts: 890 * 2 + 4085 + 68 + 100 + 11 + 300
     },
     {
-        name: '加算: 充実体制+頻回訪問(4回)',
-        p: { location: 'home', clinicType: 'kinou-kyouka', visitFreq: 4, patientStatus: 'no', clinicMeets20: true,
+        name: '加算: 充実体制+頻回訪問(4回・別表8-2)',
+        p: { location: 'home', clinicType: 'kinou-kyouka', visitFreq: 4, patientStatus: 'severe', clinicMeets20: true,
             homeGuidance: 'none', hasPrescription: true, emergencyVisits: 0, ratio: 0.1, useNursing: false,
             medTotal10: 0, publicExpense: 'none', age: '75', incomeKey: 'o70-general',
             addonFlags: { clinicTier: 'jujitsu', autoFrequentVisit: true } },
-        expectPts: 890 * 4 + 4085 + 68 + 800 + 800
+        expectPts: 890 * 4 + 4985 + 68 + 800 + 800
+    },
+    {
+        name: '加算: 頻回訪問は別表8-2のみ（一般患者は加算なし）',
+        p: { location: 'home', clinicType: 'kinou-kyouka', visitFreq: 4, patientStatus: 'no', clinicMeets20: true,
+            homeGuidance: 'none', hasPrescription: true, emergencyVisits: 0, ratio: 0.1, useNursing: false,
+            medTotal10: 0, publicExpense: 'none', age: '75', incomeKey: 'o70-general',
+            addonFlags: { autoFrequentVisit: true } },
+        expectPts: 890 * 4 + 4085 + 68
     },
     {
         name: '加算: 在がん総+情報連携+充実体制',
@@ -657,6 +699,92 @@ const tests = [
             medTotal10: 0, publicExpense: 'none', age: '69', incomeKey: 'u70-c',
             addonFlags: { dxAddon: '1', infoRenkei: true, dataSubmit: true, bukkaVisit: true, baseUpVisit: true } },
         expectPts: 890 * 2 + 4085 + 68 + 11 + 100 + 50 + (2 * 3) + (2 * 79) + 2 + 4
+    },
+    {
+        name: '在がん総4週・一般診療所（80%減算）',
+        p: { applyCancerCare: true, clinicType: 'other-clinic', cancerCareWeeks: 4, hasPrescription: true,
+            ratio: 0.3, useNursing: false, medTotal10: 0, publicExpense: 'none', age: '69', incomeKey: 'u70-c' },
+        expectPts: Math.round(1495 * 0.8) * 4
+    },
+    {
+        name: '自宅・在支診2・同一建物2〜9人',
+        p: { location: 'home', clinicType: 'zashin-ippan', visitFreq: 2, patientStatus: 'no', clinicMeets20: true,
+            buildingPatientTier: 'tier2_9', homeGuidance: 'none', hasPrescription: true, emergencyVisits: 0, ratio: 0.3,
+            useNursing: false, medTotal10: 0, publicExpense: 'none', age: '69', incomeKey: 'u70-c' },
+        expectPts: 890 * 2 + 1985 + 68
+    },
+    {
+        name: '月12回超減算（5回訪問・5回目50%）',
+        p: { location: 'home', clinicType: 'kinou-kyouka', visitFreq: 5, patientStatus: 'no', clinicMeets20: true,
+            over12Avg: true, homeGuidance: 'none', hasPrescription: true, emergencyVisits: 0, ratio: 0.3,
+            useNursing: false, medTotal10: 0, publicExpense: 'none', age: '69', incomeKey: 'u70-c' },
+        expectPts: 890 * 4 + Math.round(890 * 0.5) + 4085 + 68
+    },
+    {
+        name: '薬剤師同時指導・一般診療所は算定不可',
+        p: { location: 'home', clinicType: 'other-clinic', visitFreq: 2, patientStatus: 'no', clinicMeets20: true,
+            homeGuidance: 'none', hasPrescription: true, emergencyVisits: 0, ratio: 0.1, useNursing: false,
+            medTotal10: 0, publicExpense: 'none', age: '75', incomeKey: 'o70-general',
+            addonFlags: { pharmacistJoint: true } },
+        expectPts: 890 * 2 + Math.round(2735 * 0.8) + 68
+    },
+    {
+        name: '高額療養費・70歳未満区分ウ（段階制）',
+        p: { location: 'home', clinicType: 'kinou-kyouka', visitFreq: 2, patientStatus: 'no', clinicMeets20: true,
+            homeGuidance: 'oxygen', hasPrescription: true, emergencyVisits: 0, ratio: 0.3, useNursing: false,
+            medTotal10: 500000, publicExpense: 'none', age: '69', incomeKey: 'u70-c' },
+        expectTotalCap: 80100 + (83330 + 500000 - 267000) * 0.01
+    },
+    {
+        name: '高額療養費・70歳未満区分オ',
+        p: { location: 'home', clinicType: 'kinou-kyouka', visitFreq: 2, patientStatus: 'no', clinicMeets20: true,
+            homeGuidance: 'oxygen', hasPrescription: true, emergencyVisits: 0, ratio: 0.3, useNursing: false,
+            medTotal10: 200000, publicExpense: 'none', age: '69', incomeKey: 'u70-e' },
+        expectTotalCap: 35400
+    },
+    {
+        name: '高額療養費・後期高齢低所得Ⅰ',
+        p: { location: 'home', clinicType: 'kinou-kyouka', visitFreq: 2, patientStatus: 'no', clinicMeets20: true,
+            homeGuidance: 'oxygen', hasPrescription: true, emergencyVisits: 0, ratio: 0.1, useNursing: false,
+            medTotal10: 100000, publicExpense: 'none', age: '75', incomeKey: 'o70-low1' },
+        expectTotalCap: 8000
+    },
+    {
+        name: '高額療養費・現役並みⅠ（上限未達）',
+        p: { location: 'home', clinicType: 'kinou-kyouka', visitFreq: 2, patientStatus: 'no', clinicMeets20: true,
+            homeGuidance: 'oxygen', hasPrescription: true, emergencyVisits: 0, ratio: 0.1, useNursing: false,
+            medTotal10: 100000, publicExpense: 'none', age: '75', incomeKey: 'o70-active1' },
+        expectTotal: Math.round(83330 * 0.1) + Math.round(100000 * 0.1)
+    },
+    {
+        name: '高額療養費・現役並みⅠ（上限適用）',
+        p: { location: 'home', clinicType: 'kinou-kyouka', visitFreq: 2, patientStatus: 'no', clinicMeets20: true,
+            homeGuidance: 'oxygen', hasPrescription: true, emergencyVisits: 0, ratio: 0.1, useNursing: false,
+            medTotal10: 500000, publicExpense: 'none', age: '75', incomeKey: 'o70-active1' },
+        expectTotalCap: 44400 + Math.max(0, 83330 + 500000 - 567000) * 0.01
+    },
+    {
+        name: '指定難病・上限2500',
+        p: { location: 'home', clinicType: 'kinou-kyouka', visitFreq: 2, patientStatus: 'no', clinicMeets20: true,
+            homeGuidance: 'oxygen', hasPrescription: true, emergencyVisits: 0, ratio: 0.3, useNursing: true,
+            nursingRatio: 0.1, medTotal10: 10000, publicExpense: 'nanbyou', nanbyouLimit: '2500', age: '69', incomeKey: 'u70-c' },
+        expectTotal: 2500
+    },
+    {
+        name: '自立支援・上限2500',
+        p: { location: 'home', clinicType: 'kinou-kyouka', visitFreq: 2, patientStatus: 'no', clinicMeets20: true,
+            homeGuidance: 'none', hasPrescription: true, emergencyVisits: 0, ratio: 0.3, useNursing: true,
+            nursingRatio: 0.1, medTotal10: 10000, publicExpense: 'jiritsu', jiritsuLimit: '2500',
+            jiritsuCoveragePct: 100, age: '69', incomeKey: 'u70-c' },
+        expectTotal: 2500 + 596
+    },
+    {
+        name: '自治体助成・1割+上限2000',
+        p: { location: 'home', clinicType: 'kinou-kyouka', visitFreq: 2, patientStatus: 'no', clinicMeets20: true,
+            homeGuidance: 'oxygen', hasPrescription: true, emergencyVisits: 0, ratio: 0.3, useNursing: false,
+            medTotal10: 10000, publicExpense: 'local-subsidy', localSubsidyType: 'ratio-cap-2000',
+            age: '69', incomeKey: 'u70-c' },
+        expectTotal: 2000
     }
 ];
 

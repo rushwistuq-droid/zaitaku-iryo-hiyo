@@ -81,6 +81,14 @@ document.addEventListener('DOMContentLoaded', () => {
     const visitPlanControls = document.getElementById('visit-plan-controls');
     const facilityPatientTierGroup = document.getElementById('facility-patient-tier-group');
     const facilityBuildingPatientsSelect = document.getElementById('facility-building-patients');
+    const kinouBedTypeGroup = document.getElementById('kinou-bed-type-group');
+    const kinouBedTypeSelect = document.getElementById('kinou-bed-type');
+    const householdHighCostGroup = document.getElementById('household-high-cost-group');
+    const householdHighCostEnable = document.getElementById('household-high-cost-enable');
+    const householdOtherCopayGroup = document.getElementById('household-other-copay-group');
+    const householdOtherCopayInput = document.getElementById('household-other-copay');
+    const rowHouseholdHighCostApplied = document.getElementById('row-household-high-cost-applied');
+    const tableHouseholdLimitApplied = document.getElementById('table-household-limit-applied');
 
     const BUILDING_PATIENT_TIER_LABELS = {
         tier1: '1人',
@@ -115,11 +123,20 @@ document.addEventListener('DOMContentLoaded', () => {
         management: {
             home: {
                 section1: {
-                    tier1: { severeMulti: 4985, multi: 4085, single: 2505 },
-                    tier2_9: { severeMulti: 4125, multi: 2185, single: 1365 },
-                    tier10_19: { severeMulti: 2625, multi: 1085, single: 705 },
-                    tier20_49: { severeMulti: 2205, multi: 970, single: 615 },
-                    tier50plus: { severeMulti: 1935, multi: 825, single: 525 }
+                    bedless: {
+                        tier1: { severeMulti: 4985, multi: 4085, single: 2505 },
+                        tier2_9: { severeMulti: 4125, multi: 2185, single: 1365 },
+                        tier10_19: { severeMulti: 2625, multi: 1085, single: 705 },
+                        tier20_49: { severeMulti: 2205, multi: 970, single: 615 },
+                        tier50plus: { severeMulti: 1935, multi: 825, single: 525 }
+                    },
+                    withBed: {
+                        tier1: { severeMulti: 5385, multi: 4485, single: 2745 },
+                        tier2_9: { severeMulti: 4485, multi: 2385, single: 1485 },
+                        tier10_19: { severeMulti: 2865, multi: 1185, single: 765 },
+                        tier20_49: { severeMulti: 2400, multi: 1065, single: 670 },
+                        tier50plus: { severeMulti: 2110, multi: 905, single: 575 }
+                    }
                 },
                 section2: {
                     tier1: { severeMulti: 4585, multi: 3685, single: 2285 },
@@ -138,11 +155,20 @@ document.addEventListener('DOMContentLoaded', () => {
             },
             facility: {
                 section1: {
-                    tier1: { severeMulti: 3585, multi: 2885, single: 1785 },
-                    tier2_9: { severeMulti: 2955, multi: 1535, single: 975 },
-                    tier10_19: { severeMulti: 2625, multi: 1085, single: 705 },
-                    tier20_49: { severeMulti: 2205, multi: 970, single: 615 },
-                    tier50plus: { severeMulti: 1935, multi: 825, single: 525 }
+                    bedless: {
+                        tier1: { severeMulti: 3585, multi: 2885, single: 1785 },
+                        tier2_9: { severeMulti: 2955, multi: 1535, single: 975 },
+                        tier10_19: { severeMulti: 2625, multi: 1085, single: 705 },
+                        tier20_49: { severeMulti: 2205, multi: 970, single: 615 },
+                        tier50plus: { severeMulti: 1935, multi: 825, single: 525 }
+                    },
+                    withBed: {
+                        tier1: { severeMulti: 3985, multi: 3285, single: 2025 },
+                        tier2_9: { severeMulti: 3355, multi: 1935, single: 1215 },
+                        tier10_19: { severeMulti: 3025, multi: 1485, single: 945 },
+                        tier20_49: { severeMulti: 2605, multi: 1370, single: 855 },
+                        tier50plus: { severeMulti: 2335, multi: 1225, single: 765 }
+                    }
                 },
                 section2: {
                     tier1: { severeMulti: 3285, multi: 2585, single: 1625 },
@@ -176,13 +202,18 @@ document.addEventListener('DOMContentLoaded', () => {
         houkatsuAddon: 150,
         section3ManageRatio: 0.8,
         addons: {
-            clinicTier: { jujitsu: 800, jisseki1: 300, jisseki2: 200 },
+            clinicTierByBuilding: {
+                jujitsu: { tier1: 800, tier2_9: 400, tier10_19: 200, tier20_49: 170, tier50plus: 150 },
+                jisseki1: { tier1: 300, tier2_9: 150, tier10_19: 75, tier20_49: 63, tier50plus: 56 },
+                jisseki2: { tier1: 200, tier2_9: 100, tier10_19: 50, tier20_49: 43, tier50plus: 38 }
+            },
             cancerJujitsu: 300,
             infoRenkei: 100,
             dataSubmit: 50,
             earlyTransition: 100,
             onlineMgmt: 100,
             frequentVisitFirst: 800,
+            frequentVisitFollowUp: 300,
             continuingCare: 216,
             nursingInstruction: 300,
             specialNursingInstruction: 100,
@@ -256,20 +287,46 @@ document.addEventListener('DOMContentLoaded', () => {
     function getHighCostLimit(age, incomeKey, combinedMedicalTotal10) {
         const isSenior = age === '75' || age === '70';
         if (isSenior) {
-            // 70歳以上は「外来（個人）」限度額（訪問診療＋院外薬局）
             if (incomeKey === 'o70-active3' || incomeKey === 'o70-active2' || incomeKey === 'o70-active1') {
                 return 44400 + Math.max(0, combinedMedicalTotal10 - 567000) * 0.01;
             }
             if (incomeKey === 'o70-general') return 18000;
             if (incomeKey === 'o70-low2' || incomeKey === 'o70-low1') return 8000;
         } else {
-            if (incomeKey === 'u70-a') return 252600 + Math.max(0, combinedMedicalTotal10 - 842000) * 0.01;
-            if (incomeKey === 'u70-b') return 167400 + Math.max(0, combinedMedicalTotal10 - 558000) * 0.01;
-            if (incomeKey === 'u70-c') return 80100 + Math.max(0, combinedMedicalTotal10 - 267000) * 0.01;
-            if (incomeKey === 'u70-d') return 57600;
-            if (incomeKey === 'u70-e') return 35400;
+            return getHouseholdHighCostLimit(incomeKey, combinedMedicalTotal10);
         }
         return Infinity;
+    }
+
+    function getHouseholdHighCostLimit(incomeKey, combinedMedicalTotal10) {
+        if (incomeKey === 'o70-active3' || incomeKey === 'u70-a') {
+            return 252600 + Math.max(0, combinedMedicalTotal10 - 842000) * 0.01;
+        }
+        if (incomeKey === 'o70-active2' || incomeKey === 'u70-b') {
+            return 167400 + Math.max(0, combinedMedicalTotal10 - 558000) * 0.01;
+        }
+        if (incomeKey === 'o70-active1' || incomeKey === 'u70-c') {
+            return 80100 + Math.max(0, combinedMedicalTotal10 - 267000) * 0.01;
+        }
+        if (incomeKey === 'o70-general' || incomeKey === 'u70-d') return 57600;
+        if (incomeKey === 'o70-low2') return 24600;
+        if (incomeKey === 'o70-low1') return 15000;
+        if (incomeKey === 'u70-e') return 35400;
+        return Infinity;
+    }
+
+    function getClinicTierAddonPoints(clinicTier, buildingPatientTier) {
+        if (!clinicTier || clinicTier === 'none') return 0;
+        const table = FEE_2026.addons.clinicTierByBuilding[clinicTier];
+        if (!table) return 0;
+        const tierKey = buildingPatientTier || 'tier1';
+        return table[tierKey] || table.tier1 || 0;
+    }
+
+    function getFrequentVisitAddonPoints(visitFreq) {
+        if (visitFreq < 4) return 0;
+        const extra = Math.max(0, visitFreq - 4);
+        return FEE_2026.addons.frequentVisitFirst + extra * FEE_2026.addons.frequentVisitFollowUp;
     }
 
     function applyMonthlyCap(medical, medication, nursing, cap) {
@@ -363,7 +420,7 @@ document.addEventListener('DOMContentLoaded', () => {
     function calculateAddonPoints(params) {
         const {
             applyCancerCare, clinicType, visitFreq, cancerCareWeeks, emergencyVisits,
-            addonFlags, location, hasPrescription, patientStatus
+            addonFlags, location, hasPrescription, patientStatus, buildingPatientTier
         } = params;
         const A = FEE_2026.addons;
         const items = [];
@@ -376,8 +433,8 @@ document.addEventListener('DOMContentLoaded', () => {
         };
 
         if (!applyCancerCare) {
-            const tierPts = A.clinicTier[addonFlags.clinicTier];
-            if (tierPts) {
+            const tierPts = getClinicTierAddonPoints(addonFlags.clinicTier, buildingPatientTier);
+            if (tierPts > 0) {
                 const tierLabels = {
                     jujitsu: '在宅医療充実体制加算（在医総管）',
                     jisseki1: '在宅療養実績加算1（在医総管）',
@@ -390,7 +447,11 @@ document.addEventListener('DOMContentLoaded', () => {
             if (addonFlags.earlyTransition) push('在宅移行早期加算', A.earlyTransition);
             if (addonFlags.onlineMgmt) push('オンライン在宅管理料', A.onlineMgmt);
             if (visitFreq >= 4 && addonFlags.autoFrequentVisit && patientStatus === 'severe') {
-                push('頻回訪問加算（初回・月4回以上）', A.frequentVisitFirst);
+                const fvPts = getFrequentVisitAddonPoints(visitFreq);
+                const fvLabel = visitFreq > 4
+                    ? `頻回訪問加算（初回800点＋2回目以降${visitFreq - 4}回×300点）`
+                    : '頻回訪問加算（初回・月4回以上）';
+                push(fvLabel, fvPts);
             }
             if (addonFlags.continuingCare && clinicType === 'other-clinic') {
                 push('継続診療加算', A.continuingCare);
@@ -452,11 +513,17 @@ document.addEventListener('DOMContentLoaded', () => {
         return { total, items };
     }
 
-    function getManagementPoints(location, section, visitFreq, patientStatus, clinicMeets20, buildingPatientTier) {
+    function getManagementPoints(location, section, visitFreq, patientStatus, clinicMeets20, buildingPatientTier, kinouBedType) {
         const locKey = location === 'home' ? 'home' : 'facility';
         const sectionRates = FEE_2026.management[locKey][section];
         const tierKey = buildingPatientTier || 'tier1';
-        const rates = sectionRates[tierKey] || sectionRates.tier1;
+        let rates;
+        if (section === 'section1' && sectionRates.bedless) {
+            const variant = kinouBedType === 'withBed' ? 'withBed' : 'bedless';
+            rates = sectionRates[variant][tierKey] || sectionRates[variant].tier1;
+        } else {
+            rates = sectionRates[tierKey] || sectionRates.tier1;
+        }
 
         let useMulti = visitFreq >= 2;
         if (useMulti && !clinicMeets20) useMulti = false;
@@ -484,7 +551,7 @@ document.addEventListener('DOMContentLoaded', () => {
             applyCancerCare, clinicType, hasPrescription, cancerCareWeeks,
             location, visitFreq, emergencyVisits, nightHolidayVisits, lateNightVisits,
             homeGuidanceType, patientStatus, clinicMeets20, buildingPatientTier, addonFlags,
-            over12Avg
+            over12Avg, kinouBedType
         } = params;
 
         const section = CLINIC_SECTION[clinicType] || 'section2';
@@ -496,7 +563,7 @@ document.addEventListener('DOMContentLoaded', () => {
             breakdown.cancer = (hasPrescription ? rates.withRx : rates.withoutRx) * cancerCareWeeks;
             const addonResult = calculateAddonPoints({
                 applyCancerCare, clinicType, visitFreq, cancerCareWeeks, emergencyVisits: 0,
-                addonFlags, location, hasPrescription, patientStatus
+                addonFlags, location, hasPrescription, patientStatus, buildingPatientTier
             });
             breakdown.addons = addonResult.total;
             addonItems = addonResult.items;
@@ -506,7 +573,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
         breakdown.visit = getVisitPoints(location, visitFreq, over12Avg);
         breakdown.management = getManagementPoints(
-            location, section, visitFreq, patientStatus, clinicMeets20, buildingPatientTier
+            location, section, visitFreq, patientStatus, clinicMeets20, buildingPatientTier, kinouBedType
         );
 
         if (emergencyVisits > 0) {
@@ -526,7 +593,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
         const addonResult = calculateAddonPoints({
             applyCancerCare, clinicType, visitFreq, cancerCareWeeks, emergencyVisits,
-            addonFlags, location, hasPrescription, patientStatus
+            addonFlags, location, hasPrescription, patientStatus, buildingPatientTier
         });
         breakdown.addons = addonResult.total;
         addonItems = addonResult.items;
@@ -559,7 +626,8 @@ document.addEventListener('DOMContentLoaded', () => {
             age, incomeKey, visitFreq, emergencyVisits, hasDisabilityCert, disabilityGrade,
             nanbyouLimit, nanbyouVentilator, nanbyouLongTerm,
             jiritsuLimit, jiritsuCoveragePct,
-            localSubsidyType, localCoverNursing
+            localSubsidyType, localCoverNursing,
+            householdOtherCopay, householdOtherMedTotal10, useHouseholdHighCost
         } = params;
 
         const nbLimitKey = nanbyouLimit ?? nanbyouLimitSelect?.value ?? '10000';
@@ -576,15 +644,18 @@ document.addEventListener('DOMContentLoaded', () => {
         let medication = rawMedCopay;
         let nursing = rawNursingCopay;
         let highCostDeduction = 0;
+        let householdHighCostDeduction = 0;
         let publicLimitDeduction = 0;
         let isHighCostApplied = false;
+        let isHouseholdHighCostApplied = false;
         let isPublicApplied = false;
 
         if (publicExpense === 'welfare') {
             publicLimitDeduction = medical + medication + nursing;
             return {
                 medical: 0, medication: 0, nursing: 0,
-                highCostDeduction, publicLimitDeduction, isHighCostApplied, isPublicApplied: true
+                highCostDeduction, householdHighCostDeduction, publicLimitDeduction,
+                isHighCostApplied, isHouseholdHighCostApplied, isPublicApplied: true
             };
         }
 
@@ -606,7 +677,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
             return {
                 medical, medication, nursing,
-                highCostDeduction, publicLimitDeduction, isHighCostApplied, isPublicApplied
+                highCostDeduction, householdHighCostDeduction, publicLimitDeduction,
+                isHighCostApplied, isHouseholdHighCostApplied, isPublicApplied
             };
         }
 
@@ -639,7 +711,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
             return {
                 medical, medication, nursing,
-                highCostDeduction, publicLimitDeduction, isHighCostApplied, isPublicApplied
+                highCostDeduction, householdHighCostDeduction, publicLimitDeduction,
+                isHighCostApplied, isHouseholdHighCostApplied, isPublicApplied
             };
         }
 
@@ -685,7 +758,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
             return {
                 medical, medication, nursing,
-                highCostDeduction, publicLimitDeduction, isHighCostApplied, isPublicApplied
+                highCostDeduction, householdHighCostDeduction, publicLimitDeduction,
+                isHighCostApplied, isHouseholdHighCostApplied, isPublicApplied
             };
         }
 
@@ -718,9 +792,33 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         }
 
+        const isSenior = age === '75' || age === '70';
+        const otherCopay = Math.max(0, householdOtherCopay || 0);
+        if (isSenior && useHouseholdHighCost && otherCopay > 0) {
+            const otherMed10 = householdOtherMedTotal10 > 0
+                ? householdOtherMedTotal10
+                : (medicalRatio > 0 ? otherCopay / medicalRatio : 0);
+            const householdCombined10 = combinedMedicalTotal10 + otherMed10;
+            const householdLimit = getHouseholdHighCostLimit(incomeKey, householdCombined10);
+            const householdCopay = medical + medication + otherCopay;
+            if (householdCopay > householdLimit) {
+                const patientShare = medical + medication;
+                const excess = householdCopay - householdLimit;
+                const patientReduction = Math.min(excess, patientShare);
+                if (patientReduction > 0) {
+                    const capped = applyMonthlyCap(medical, medication, 0, patientShare - patientReduction);
+                    householdHighCostDeduction = patientReduction;
+                    medical = capped.medical;
+                    medication = capped.medication;
+                    isHouseholdHighCostApplied = true;
+                }
+            }
+        }
+
         return {
             medical, medication, nursing,
-            highCostDeduction, publicLimitDeduction, isHighCostApplied, isPublicApplied
+            highCostDeduction, householdHighCostDeduction, publicLimitDeduction,
+            isHighCostApplied, isHouseholdHighCostApplied, isPublicApplied
         };
     }
 
@@ -738,6 +836,26 @@ document.addEventListener('DOMContentLoaded', () => {
             }
             incomeLevelSelect.appendChild(el);
         });
+    }
+
+    function toggleKinouBedTypeUI() {
+        const isKinou = clinicTypeSelect.value === 'kinou-kyouka';
+        if (kinouBedTypeGroup) {
+            kinouBedTypeGroup.classList.toggle('hidden', !isKinou);
+        }
+    }
+
+    function toggleHouseholdHighCostUI() {
+        const isSenior = ageSelect.value === '75' || ageSelect.value === '70';
+        if (householdHighCostGroup) {
+            householdHighCostGroup.classList.toggle('hidden', !isSenior);
+        }
+        if (householdOtherCopayGroup && householdHighCostEnable) {
+            householdOtherCopayGroup.classList.toggle(
+                'hidden',
+                !isSenior || !householdHighCostEnable.checked
+            );
+        }
     }
 
     function toggleFacilityPatientTierUI() {
@@ -832,6 +950,9 @@ document.addEventListener('DOMContentLoaded', () => {
         const clinicMeets20 = !clinicSevere20Check || clinicSevere20Check.checked;
         const buildingPatientTier = facilityBuildingPatientsSelect?.value || 'tier1';
         const over12Avg = !!document.getElementById('visit-over-12-avg')?.checked;
+        const kinouBedType = kinouBedTypeSelect?.value || 'bedless';
+        const useHouseholdHighCost = !!householdHighCostEnable?.checked;
+        const householdOtherCopay = parseFloat(householdOtherCopayInput?.value || 0);
 
         const hasPrescription = hasPrescriptionSelect.value === 'yes';
         const medTotal10 = getMedicationTotal10();
@@ -848,7 +969,7 @@ document.addEventListener('DOMContentLoaded', () => {
             applyCancerCare, clinicType, hasPrescription, cancerCareWeeks,
             location, visitFreq, emergencyVisits, nightHolidayVisits, lateNightVisits,
             homeGuidanceType, patientStatus, clinicMeets20, buildingPatientTier, addonFlags,
-            over12Avg
+            over12Avg, kinouBedType
         });
 
         const medicalTotal10 = totalPoints * 10;
@@ -879,7 +1000,9 @@ document.addEventListener('DOMContentLoaded', () => {
             jiritsuLimit: jiritsuLimitSelect?.value,
             jiritsuCoveragePct: parseInt(jiritsuCoverageSelect?.value || '100', 10),
             localSubsidyType: localSubsidyTypeSelect?.value,
-            localCoverNursing: localNursingSubsidyCheck?.checked
+            localCoverNursing: localNursingSubsidyCheck?.checked,
+            useHouseholdHighCost,
+            householdOtherCopay
         });
 
         const finalPatientTotal = result.medical + result.nursing + result.medication;
@@ -909,6 +1032,13 @@ document.addEventListener('DOMContentLoaded', () => {
             tableMedicalLimitApplied.textContent = `-${Math.round(result.highCostDeduction).toLocaleString()}`;
         }
 
+        if (rowHouseholdHighCostApplied) {
+            rowHouseholdHighCostApplied.style.display = result.isHouseholdHighCostApplied ? 'table-row' : 'none';
+        }
+        if (result.isHouseholdHighCostApplied && tableHouseholdLimitApplied) {
+            tableHouseholdLimitApplied.textContent = `-${Math.round(result.householdHighCostDeduction).toLocaleString()}`;
+        }
+
         rowPublicApplied.style.display = result.isPublicApplied ? 'table-row' : 'none';
         if (result.isPublicApplied) {
             tablePublicLimitApplied.textContent = `-${Math.round(result.publicLimitDeduction).toLocaleString()}`;
@@ -921,7 +1051,8 @@ document.addEventListener('DOMContentLoaded', () => {
         updateAdvice({
             age, useNursing, publicExpense, hasPrescription, visitFreq, emergencyVisits,
             applyCancerCare, hasDisabilityCert, homeGuidanceType, clinicMeets20, patientStatus, clinicType,
-            buildingPatientTier, addonItems, addonFlags, over12Avg, location
+            buildingPatientTier, addonItems, addonFlags, over12Avg, location,
+            useHouseholdHighCost, householdOtherCopay, kinouBedType
         });
         updatePrintData({
             age, medicalRatio, location, incomeKey, visitFreq, emergencyVisits,
@@ -965,7 +1096,8 @@ document.addEventListener('DOMContentLoaded', () => {
         const {
             age, useNursing, publicExpense, hasPrescription, visitFreq, emergencyVisits,
             applyCancerCare, hasDisabilityCert, homeGuidanceType, clinicMeets20, patientStatus, clinicType,
-            buildingPatientTier, addonItems, addonFlags, over12Avg, location
+            buildingPatientTier, addonItems, addonFlags, over12Avg, location,
+            useHouseholdHighCost, householdOtherCopay, kinouBedType
         } = ctx;
         const isSenior = age === '75' || age === '70';
         const items = [];
@@ -989,6 +1121,10 @@ document.addEventListener('DOMContentLoaded', () => {
             items.push('<strong>別表8-3（包括的支援加算）</strong>: 月2回訪問時は在医総管「月2回以上」＋包括的支援加算150点が適用されます。');
         }
 
+        if (clinicType === 'kinou-kyouka' && kinouBedTypeSelect?.value === 'withBed' && !applyCancerCare) {
+            items.push('<strong>機能強化型・病床あり</strong>: 在医総管・施医総管は病床あり区分の点数で算定しています。');
+        }
+
         if (clinicType === 'other-clinic' && !applyCancerCare) {
             items.push('<strong>一般診療所</strong>: 在医総管・施設総管は2026年改定により<strong>80%に減算</strong>されます（C002通知25）。');
         }
@@ -1006,7 +1142,11 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         if (isSenior) {
-            items.push('<strong>高額療養費（70歳以上）</strong>: 医療保険＋お薬代の「外来（個人）」上限が適用（一般18,000円/月、非課税8,000円/月）。<strong>介護保険分は別</strong>です。世帯上限はモーダル参照のとおり別途ありますが、本シミュレーターでは個人上限のみ反映しています。');
+            if (householdHighCostEnable?.checked && householdOtherCopay > 0) {
+                items.push('<strong>高額療養費（70歳以上・世帯上限）</strong>: 同一世帯の他の方の医療費を含め、世帯上限を適用しています。個人上限との併用です。');
+            } else {
+                items.push('<strong>高額療養費（70歳以上）</strong>: 医療保険＋お薬代の「外来（個人）」上限を適用しています。同一世帯に他の医療費がある場合は「世帯上限」も確認してください。');
+            }
         } else {
             items.push('<strong>高額療養費（70歳未満）</strong>: 医療保険＋お薬代が所得区分の世帯上限の対象。介護保険は別制度です。');
         }
@@ -1163,6 +1303,7 @@ document.addEventListener('DOMContentLoaded', () => {
         else if (ageSelect.value === '70') copayRatioSelect.value = '0.2';
         else copayRatioSelect.value = '0.3';
         updateIncomeOptions();
+        toggleHouseholdHighCostUI();
         syncMedicationInputFromCache();
         updateCalculations();
     });
@@ -1182,9 +1323,18 @@ document.addEventListener('DOMContentLoaded', () => {
         facilityBuildingPatientsSelect.addEventListener('change', updateCalculations);
     }
     clinicTypeSelect.addEventListener('change', () => {
+        toggleKinouBedTypeUI();
         toggleAddonPanels();
         updateCalculations();
     });
+    if (kinouBedTypeSelect) kinouBedTypeSelect.addEventListener('change', updateCalculations);
+    if (householdHighCostEnable) {
+        householdHighCostEnable.addEventListener('change', () => {
+            toggleHouseholdHighCostUI();
+            updateCalculations();
+        });
+    }
+    if (householdOtherCopayInput) householdOtherCopayInput.addEventListener('input', updateCalculations);
     if (clinicSevere20Check) clinicSevere20Check.addEventListener('change', updateCalculations);
     if (patientSevereSelect) patientSevereSelect.addEventListener('change', updateCalculations);
 
@@ -1284,6 +1434,8 @@ document.addEventListener('DOMContentLoaded', () => {
     updateIncomeOptions();
     updateMedicationLabel();
     toggleFacilityPatientTierUI();
+    toggleKinouBedTypeUI();
+    toggleHouseholdHighCostUI();
     toggleCancerCareUI();
     bindAddonInputs();
     syncEmergencyTimeSliders();

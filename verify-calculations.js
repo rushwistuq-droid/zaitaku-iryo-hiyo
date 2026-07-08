@@ -26,11 +26,20 @@ const FEE_2026 = {
     management: {
         home: {
             section1: {
-                tier1: { severeMulti: 4985, multi: 4085, single: 2505 },
-                tier2_9: { severeMulti: 4125, multi: 2185, single: 1365 },
-                tier10_19: { severeMulti: 2625, multi: 1085, single: 705 },
-                tier20_49: { severeMulti: 2205, multi: 970, single: 615 },
-                tier50plus: { severeMulti: 1935, multi: 825, single: 525 }
+                bedless: {
+                    tier1: { severeMulti: 4985, multi: 4085, single: 2505 },
+                    tier2_9: { severeMulti: 4125, multi: 2185, single: 1365 },
+                    tier10_19: { severeMulti: 2625, multi: 1085, single: 705 },
+                    tier20_49: { severeMulti: 2205, multi: 970, single: 615 },
+                    tier50plus: { severeMulti: 1935, multi: 825, single: 525 }
+                },
+                withBed: {
+                    tier1: { severeMulti: 5385, multi: 4485, single: 2745 },
+                    tier2_9: { severeMulti: 4485, multi: 2385, single: 1485 },
+                    tier10_19: { severeMulti: 2865, multi: 1185, single: 765 },
+                    tier20_49: { severeMulti: 2400, multi: 1065, single: 670 },
+                    tier50plus: { severeMulti: 2110, multi: 905, single: 575 }
+                }
             },
             section2: {
                 tier1: { severeMulti: 4585, multi: 3685, single: 2285 },
@@ -49,11 +58,20 @@ const FEE_2026 = {
         },
         facility: {
             section1: {
-                tier1: { severeMulti: 3585, multi: 2885, single: 1785 },
-                tier2_9: { severeMulti: 2955, multi: 1535, single: 975 },
-                tier10_19: { severeMulti: 2625, multi: 1085, single: 705 },
-                tier20_49: { severeMulti: 2205, multi: 970, single: 615 },
-                tier50plus: { severeMulti: 1935, multi: 825, single: 525 }
+                bedless: {
+                    tier1: { severeMulti: 3585, multi: 2885, single: 1785 },
+                    tier2_9: { severeMulti: 2955, multi: 1535, single: 975 },
+                    tier10_19: { severeMulti: 2625, multi: 1085, single: 705 },
+                    tier20_49: { severeMulti: 2205, multi: 970, single: 615 },
+                    tier50plus: { severeMulti: 1935, multi: 825, single: 525 }
+                },
+                withBed: {
+                    tier1: { severeMulti: 3985, multi: 3285, single: 2025 },
+                    tier2_9: { severeMulti: 3355, multi: 1935, single: 1215 },
+                    tier10_19: { severeMulti: 3025, multi: 1485, single: 945 },
+                    tier20_49: { severeMulti: 2605, multi: 1370, single: 855 },
+                    tier50plus: { severeMulti: 2335, multi: 1225, single: 765 }
+                }
             },
             section2: {
                 tier1: { severeMulti: 3285, multi: 2585, single: 1625 },
@@ -82,13 +100,18 @@ const FEE_2026 = {
     houkatsuAddon: 150,
     section3ManageRatio: 0.8,
     addons: {
-        clinicTier: { jujitsu: 800, jisseki1: 300, jisseki2: 200 },
+        clinicTierByBuilding: {
+            jujitsu: { tier1: 800, tier2_9: 400, tier10_19: 200, tier20_49: 170, tier50plus: 150 },
+            jisseki1: { tier1: 300, tier2_9: 150, tier10_19: 75, tier20_49: 63, tier50plus: 56 },
+            jisseki2: { tier1: 200, tier2_9: 100, tier10_19: 50, tier20_49: 43, tier50plus: 38 }
+        },
         cancerJujitsu: 300,
         infoRenkei: 100,
         dataSubmit: 50,
         earlyTransition: 100,
         onlineMgmt: 100,
         frequentVisitFirst: 800,
+        frequentVisitFollowUp: 300,
         continuingCare: 216,
         nursingInstruction: 300,
         specialNursingInstruction: 100,
@@ -137,13 +160,40 @@ function getHighCostLimit(age, incomeKey, combinedMedicalTotal10) {
         if (incomeKey === 'o70-general') return 18000;
         if (incomeKey === 'o70-low2' || incomeKey === 'o70-low1') return 8000;
     } else {
-        if (incomeKey === 'u70-a') return 252600 + Math.max(0, combinedMedicalTotal10 - 842000) * 0.01;
-        if (incomeKey === 'u70-b') return 167400 + Math.max(0, combinedMedicalTotal10 - 558000) * 0.01;
-        if (incomeKey === 'u70-c') return 80100 + Math.max(0, combinedMedicalTotal10 - 267000) * 0.01;
-        if (incomeKey === 'u70-d') return 57600;
-        if (incomeKey === 'u70-e') return 35400;
+        return getHouseholdHighCostLimit(incomeKey, combinedMedicalTotal10);
     }
     return Infinity;
+}
+
+function getHouseholdHighCostLimit(incomeKey, combinedMedicalTotal10) {
+    if (incomeKey === 'o70-active3' || incomeKey === 'u70-a') {
+        return 252600 + Math.max(0, combinedMedicalTotal10 - 842000) * 0.01;
+    }
+    if (incomeKey === 'o70-active2' || incomeKey === 'u70-b') {
+        return 167400 + Math.max(0, combinedMedicalTotal10 - 558000) * 0.01;
+    }
+    if (incomeKey === 'o70-active1' || incomeKey === 'u70-c') {
+        return 80100 + Math.max(0, combinedMedicalTotal10 - 267000) * 0.01;
+    }
+    if (incomeKey === 'o70-general' || incomeKey === 'u70-d') return 57600;
+    if (incomeKey === 'o70-low2') return 24600;
+    if (incomeKey === 'o70-low1') return 15000;
+    if (incomeKey === 'u70-e') return 35400;
+    return Infinity;
+}
+
+function getClinicTierAddonPoints(clinicTier, buildingPatientTier) {
+    if (!clinicTier || clinicTier === 'none') return 0;
+    const table = FEE_2026.addons.clinicTierByBuilding[clinicTier];
+    if (!table) return 0;
+    const tierKey = buildingPatientTier || 'tier1';
+    return table[tierKey] || table.tier1 || 0;
+}
+
+function getFrequentVisitAddonPoints(visitFreq) {
+    if (visitFreq < 4) return 0;
+    return FEE_2026.addons.frequentVisitFirst
+        + Math.max(0, visitFreq - 4) * FEE_2026.addons.frequentVisitFollowUp;
 }
 
 function applyMonthlyCap(medical, medication, nursing, cap) {
@@ -178,7 +228,8 @@ function applyPublicExpenseCore(params) {
         age, incomeKey, visitFreq, emergencyVisits, hasDisabilityCert, disabilityGrade,
         nanbyouLimit, nanbyouVentilator, nanbyouLongTerm,
         jiritsuLimit, jiritsuCoveragePct,
-        localSubsidyType, localCoverNursing
+        localSubsidyType, localCoverNursing,
+        useHouseholdHighCost, householdOtherCopay, householdOtherMedTotal10
     } = params;
 
     let medical = rawMedicalCopay;
@@ -283,6 +334,27 @@ function applyPublicExpenseCore(params) {
         }
     }
 
+    const isSenior = age === '75' || age === '70';
+    const otherCopay = Math.max(0, householdOtherCopay || 0);
+    if (isSenior && useHouseholdHighCost && otherCopay > 0) {
+        const otherMed10 = householdOtherMedTotal10 > 0
+            ? householdOtherMedTotal10
+            : (medicalRatio > 0 ? otherCopay / medicalRatio : 0);
+        const householdCombined10 = combinedMedicalTotal10 + otherMed10;
+        const householdLimit = getHouseholdHighCostLimit(incomeKey, householdCombined10);
+        const householdCopay = medical + medication + otherCopay;
+        if (householdCopay > householdLimit) {
+            const patientShare = medical + medication;
+            const excess = householdCopay - householdLimit;
+            const patientReduction = Math.min(excess, patientShare);
+            if (patientReduction > 0) {
+                const capped = applyMonthlyCap(medical, medication, 0, patientShare - patientReduction);
+                medical = capped.medical;
+                medication = capped.medication;
+            }
+        }
+    }
+
     return { medical, medication, nursing };
 }
 
@@ -304,11 +376,17 @@ function getVisitPoints(location, visitFreq, over12Avg) {
     return unit * 4 + Math.round(unit * (visitFreq - 4) * 0.5);
 }
 
-function getManagementPoints(location, section, visitFreq, patientStatus, clinicMeets20, buildingPatientTier) {
+function getManagementPoints(location, section, visitFreq, patientStatus, clinicMeets20, buildingPatientTier, kinouBedType) {
     const locKey = location === 'home' ? 'home' : 'facility';
     const sectionRates = FEE_2026.management[locKey][section];
     const tierKey = buildingPatientTier || 'tier1';
-    const rates = sectionRates[tierKey] || sectionRates.tier1;
+    let rates;
+    if (section === 'section1' && sectionRates.bedless) {
+        const variant = kinouBedType === 'withBed' ? 'withBed' : 'bedless';
+        rates = sectionRates[variant][tierKey] || sectionRates[variant].tier1;
+    } else {
+        rates = sectionRates[tierKey] || sectionRates.tier1;
+    }
     let useMulti = visitFreq >= 2;
     if (useMulti && !clinicMeets20) useMulti = false;
     let pts;
@@ -329,12 +407,14 @@ function calculateAddonPoints(p) {
     const push = (pts) => { if (pts > 0) total += pts; };
 
     if (!p.applyCancerCare) {
-        push(A.clinicTier[f.clinicTier]);
+        push(getClinicTierAddonPoints(f.clinicTier, p.buildingPatientTier));
         if (f.infoRenkei) push(A.infoRenkei);
         if (f.dataSubmit) push(A.dataSubmit);
         if (f.earlyTransition) push(A.earlyTransition);
         if (f.onlineMgmt) push(A.onlineMgmt);
-        if (p.visitFreq >= 4 && f.autoFrequentVisit !== false && p.patientStatus === 'severe') push(A.frequentVisitFirst);
+        if (p.visitFreq >= 4 && f.autoFrequentVisit !== false && p.patientStatus === 'severe') {
+            push(getFrequentVisitAddonPoints(p.visitFreq));
+        }
         if (f.continuingCare && p.clinicType === 'other-clinic') push(A.continuingCare);
     } else {
         if (f.infoRenkei) push(A.infoRenkei);
@@ -371,7 +451,7 @@ function calcPoints(p) {
     const loc = p.location === 'home' ? 'home' : 'facility';
     let pts = getVisitPoints(p.location, p.visitFreq, p.over12Avg);
     pts += getManagementPoints(
-        p.location, section, p.visitFreq, p.patientStatus, p.clinicMeets20, p.buildingPatientTier
+        p.location, section, p.visitFreq, p.patientStatus, p.clinicMeets20, p.buildingPatientTier, p.kinouBedType
     );
     pts += (FEE_2026.guidance[p.homeGuidance] || 0);
     pts += getEmergencyVisitBreakdown(
@@ -421,7 +501,10 @@ function calcTotal(p) {
         jiritsuLimit: p.jiritsuLimit,
         jiritsuCoveragePct: p.jiritsuCoveragePct,
         localSubsidyType: p.localSubsidyType,
-        localCoverNursing: p.localCoverNursing
+        localCoverNursing: p.localCoverNursing,
+        useHouseholdHighCost: p.useHouseholdHighCost,
+        householdOtherCopay: p.householdOtherCopay,
+        householdOtherMedTotal10: p.householdOtherMedTotal10
     });
 
     return {
@@ -785,6 +868,37 @@ const tests = [
             medTotal10: 10000, publicExpense: 'local-subsidy', localSubsidyType: 'ratio-cap-2000',
             age: '69', incomeKey: 'u70-c' },
         expectTotal: 2000
+    },
+    {
+        name: '頻回訪問5回・別表8-2（800+300）',
+        p: { location: 'home', clinicType: 'kinou-kyouka', visitFreq: 5, patientStatus: 'severe', clinicMeets20: true,
+            homeGuidance: 'none', hasPrescription: true, emergencyVisits: 0, ratio: 0.1, useNursing: false,
+            medTotal10: 0, publicExpense: 'none', age: '75', incomeKey: 'o70-general',
+            addonFlags: { autoFrequentVisit: true } },
+        expectPts: 890 * 5 + 4985 + 68 + 800 + 300
+    },
+    {
+        name: '機能強化型・病床あり・別表8-2',
+        p: { location: 'home', clinicType: 'kinou-kyouka', kinouBedType: 'withBed', visitFreq: 2, patientStatus: 'severe',
+            clinicMeets20: true, homeGuidance: 'none', hasPrescription: true, emergencyVisits: 0, ratio: 0.3,
+            useNursing: false, medTotal10: 0, publicExpense: 'none', age: '69', incomeKey: 'u70-c' },
+        expectPts: 890 * 2 + 5385 + 68
+    },
+    {
+        name: '充実体制加算・同一建物2〜9人（400点）',
+        p: { location: 'home', clinicType: 'kinou-kyouka', visitFreq: 2, patientStatus: 'no', clinicMeets20: true,
+            buildingPatientTier: 'tier2_9', homeGuidance: 'none', hasPrescription: true, emergencyVisits: 0, ratio: 0.3,
+            useNursing: false, medTotal10: 0, publicExpense: 'none', age: '69', incomeKey: 'u70-c',
+            addonFlags: { clinicTier: 'jujitsu' } },
+        expectPts: 890 * 2 + 2185 + 68 + 400
+    },
+    {
+        name: '高額療養費・70歳以上世帯上限（他世帯員5万円）',
+        p: { location: 'home', clinicType: 'kinou-kyouka', visitFreq: 2, patientStatus: 'no', clinicMeets20: true,
+            homeGuidance: 'oxygen', hasPrescription: true, emergencyVisits: 0, ratio: 0.1, useNursing: false,
+            medTotal10: 100000, publicExpense: 'none', age: '75', incomeKey: 'o70-general',
+            useHouseholdHighCost: true, householdOtherCopay: 50000 },
+        expectTotal: 7600
     }
 ];
 

@@ -75,6 +75,23 @@
                                 所得区分について詳しく
                             </button>
                         </div>
+
+                        <div id="household-high-cost-group" class="public-details-panel hidden">
+                            <div class="form-group">
+                                <label class="checkbox-item inline-check">
+                                    <input type="checkbox" id="household-high-cost-enable">
+                                    <span>同一世帯の他の方の医療費を含めて世帯上限を計算（70歳以上）</span>
+                                </label>
+                                <span class="help-text">※配偶者・同居家族の外来・入院自己負担がある場合、個人上限に加えて世帯上限が適用されることがあります。</span>
+                            </div>
+                            <div class="form-group hidden" id="household-other-copay-group">
+                                <label for="household-other-copay">同一世帯の他の方の医療＋薬代自己負担（当月・高額療養費適用前）</label>
+                                <div class="input-unit-container">
+                                    <input type="number" id="household-other-copay" class="form-control" value="0" min="0" step="1000">
+                                    <span class="input-unit">円</span>
+                                </div>
+                            </div>
+                        </div>
                     </div>
                 </div>
 
@@ -129,6 +146,15 @@
                                 <option value="other-clinic">一般の診療所（在宅療養支援以外）</option>
                             </select>
                             <span class="help-text">※2026年改定で機能強化型と従来型で在医総管・在がん総の点数が異なります。</span>
+                        </div>
+
+                        <div class="form-group hidden" id="kinou-bed-type-group">
+                            <label for="kinou-bed-type">機能強化型診療所の病床区分</label>
+                            <select id="kinou-bed-type" class="form-control">
+                                <option value="bedless" selected>病床なし（外来中心・単独型診療所）</option>
+                                <option value="withBed">病床あり（許可病床を有する診療所等）</option>
+                            </select>
+                            <span class="help-text">※機能強化型在宅療養支援診療所のみ、在医総管・施医総管の点数が病床の有無で異なります。</span>
                         </div>
 
                         <div class="form-group">
@@ -551,8 +577,12 @@
                                     <td class="align-right"><span id="table-medical-copay">0</span>円</td>
                                 </tr>
                                 <tr class="sub-row" id="row-high-cost-applied">
-                                    <td class="indent-2 text-muted">※高額療養費による軽減額</td>
+                                    <td class="indent-2 text-muted">※高額療養費による軽減額（個人上限）</td>
                                     <td class="align-right text-success"><span id="table-medical-limit-applied">-0</span>円</td>
+                                </tr>
+                                <tr class="sub-row" id="row-household-high-cost-applied" style="display:none">
+                                    <td class="indent-2 text-muted">※高額療養費による軽減額（世帯上限）</td>
+                                    <td class="align-right text-success"><span id="table-household-limit-applied">-0</span>円</td>
                                 </tr>
                                 <tr class="sub-row" id="row-public-applied">
                                     <td class="indent-2 text-muted">※公費・助成制度による軽減額</td>

@@ -18,6 +18,26 @@
     <link rel="stylesheet" href="styles.css">
 </head>
 <body>
+    <!-- アクセスコード入力ゲート（有料note購入者のみ利用可） -->
+    <div id="access-gate" class="access-gate">
+        <div class="access-gate-card">
+            <div class="access-gate-logo">
+                <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <rect x="3" y="11" width="18" height="11" rx="2" ry="2"/>
+                    <path d="M7 11V7a5 5 0 0 1 10 0v4"/>
+                </svg>
+            </div>
+            <h2>在宅医療費用シミュレーター</h2>
+            <p class="access-gate-lead">このツールは有料note購入者向けの限定公開です。<br>note内に記載されている<strong>アクセスコード</strong>を入力してください。</p>
+            <form id="access-gate-form" class="access-gate-form" autocomplete="off">
+                <input type="text" id="access-code-input" class="form-control" placeholder="アクセスコードを入力" autocapitalize="characters" spellcheck="false" aria-label="アクセスコード">
+                <button type="submit" class="btn btn-primary btn-block" id="access-code-submit">ツールを開く</button>
+            </form>
+            <p id="access-gate-error" class="access-gate-error" role="alert" hidden>アクセスコードが正しくありません。note本文をご確認ください。</p>
+            <p class="access-gate-note">コードは一度入力するとこの端末・ブラウザで記憶されます。<br>まだお持ちでない方は有料noteをご覧ください。</p>
+        </div>
+    </div>
+
     <div class="app-container">
         <!-- ヘッダー -->
         <header class="app-header">

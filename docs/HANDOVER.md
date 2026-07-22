@@ -52,7 +52,10 @@ zaitaku-iryo-hiyo/
 ├── CLAUDE.md               # Claude Code 向け短縮指示
 ├── docs/
 │   ├── HANDOVER.md         # 本ファイル
-│   └── NOTE_SALES_GUIDE.md # 有料note販売用文案
+│   ├── NOTE_ARTICLE.md     # そのまま公開できる有料note完成記事
+│   ├── NOTE_SALES_GUIDE.md # 有料note販売用文案パーツ集
+│   ├── ACCESS_CODE.md      # アクセスコード（有料ゲート）運用ガイド
+│   └── URL_MIGRATION.md    # 公開URL変更（身バレ対策）ガイド
 └── .github/workflows/
     ├── deploy-pages.yml    # main push → GitHub Pages
     └── verify-calculations.yml  # 全ブランチでテスト実行
@@ -258,6 +261,7 @@ python3 -m http.server 8080
 4. **薬剤師同時指導料** → 自宅・在医総管（`clinicType !== 'other-clinic'`）のみ
 5. **在がん総時** → 訪問・管理料は包括。`visitFreq` は無効化
 6. **GitHub Pages** → `main` 以外のブランチでは本番URLは更新されない
+7. **アクセスコードゲート** → `app.js` 先頭の `ACCESS_CODE_HASH`（SHA-256）で照合。UIは `index.html` の `#access-gate`、装飾は `styles.css`「アクセスコードゲート」節。コード変更手順は `docs/ACCESS_CODE.md`。計算ロジックとは独立（テストには影響しない）
 
 ---
 

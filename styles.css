@@ -1068,3 +1068,70 @@ select.form-control {
         margin-bottom: 6px;
     }
 }
+
+/* ===== アクセスコードゲート ===== */
+.access-gate {
+    position: fixed;
+    inset: 0;
+    z-index: 9999;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 20px;
+    background: linear-gradient(135deg, #0d9488 0%, #0f766e 100%);
+    overflow-y: auto;
+}
+
+.access-gate-card {
+    width: 100%;
+    max-width: 420px;
+    background: var(--bg-card);
+    border-radius: var(--radius-lg);
+    box-shadow: var(--shadow-lg);
+    padding: 36px 28px;
+    text-align: center;
+}
+
+.access-gate-logo {
+    color: var(--primary);
+    margin-bottom: 12px;
+}
+
+.access-gate-card h2 {
+    font-size: 1.25rem;
+    color: var(--text-main);
+    margin-bottom: 14px;
+}
+
+.access-gate-lead {
+    font-size: 0.92rem;
+    color: var(--text-muted);
+    line-height: 1.7;
+    margin-bottom: 22px;
+}
+
+.access-gate-form {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+.access-gate-form .form-control {
+    text-align: center;
+    letter-spacing: 0.12em;
+    font-size: 1.05rem;
+}
+
+.access-gate-error {
+    margin-top: 14px;
+    color: var(--danger);
+    font-size: 0.88rem;
+    font-weight: 500;
+}
+
+.access-gate-note {
+    margin-top: 20px;
+    font-size: 0.78rem;
+    color: var(--text-muted);
+    line-height: 1.7;
+}

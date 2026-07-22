@@ -1,4 +1,47 @@
 document.addEventListener('DOMContentLoaded', () => {
+    // ===== アクセスコードゲート（有料note購入者のみ） =====
+    // 平文コードはソースに置かず SHA-256 ハッシュで照合する。
+    // コードを変更する場合は ACCESS_CODE_HASH を新しいコード（英大文字・前後空白除去）の
+    // SHA-256 16進ハッシュに差し替えること（生成方法は docs/ACCESS_CODE.md 参照）。
+    const ACCESS_CODE_HASH = '265846f02a327449ae01ed9ef54fab0ca36e9a65d1e51827256f5456a7d6593e';
+    const ACCESS_STORAGE_KEY = 'zaitaku_unlocked';
+    const accessGate = document.getElementById('access-gate');
+
+    async function sha256Hex(text) {
+        const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(text));
+        return Array.from(new Uint8Array(buf)).map(b => b.toString(16).padStart(2, '0')).join('');
+    }
+    function unlockApp() {
+        if (accessGate) accessGate.remove();
+    }
+    if (accessGate) {
+        let alreadyUnlocked = false;
+        try { alreadyUnlocked = localStorage.getItem(ACCESS_STORAGE_KEY) === ACCESS_CODE_HASH; } catch (_) {}
+        if (alreadyUnlocked) {
+            unlockApp();
+        } else {
+            const gateForm = document.getElementById('access-gate-form');
+            const gateInput = document.getElementById('access-code-input');
+            const gateError = document.getElementById('access-gate-error');
+            gateForm?.addEventListener('submit', async (e) => {
+                e.preventDefault();
+                const normalized = (gateInput?.value || '').trim().toUpperCase();
+                if (!normalized) return;
+                let ok = false;
+                try { ok = (await sha256Hex(normalized)) === ACCESS_CODE_HASH; } catch (_) { ok = false; }
+                if (ok) {
+                    try { localStorage.setItem(ACCESS_STORAGE_KEY, ACCESS_CODE_HASH); } catch (_) {}
+                    unlockApp();
+                } else if (gateError) {
+                    gateError.hidden = false;
+                    gateInput?.focus();
+                    gateInput?.select();
+                }
+            });
+        }
+    }
+    // ===== ゲートここまで =====
+
     const ageSelect = document.getElementById('age-select');
     const copayRatioSelect = document.getElementById('copay-ratio');
     const incomeLevelSelect = document.getElementById('income-level');

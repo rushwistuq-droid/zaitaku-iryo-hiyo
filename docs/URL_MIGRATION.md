@@ -38,21 +38,37 @@ https://rushwistuq-droid.github.io/zaitaku-iryo-hiyo/
 
 ---
 
-## 案B：中立な無料ホストへ移設（無料・ユーザー名も出ない）
+## 案B：中立な無料ホストへ移設（無料・ユーザー名も出ない）★採用
 
 Cloudflare Pages や Netlify に置くと、`zaitaku-hiyo.pages.dev` のような**中立なサブドメイン**で公開でき、GitHubユーザー名が一切URLに出ません。無料で独自ドメインも後付けできます。
 
 **費用**：無料
 
-### 手順（Cloudflare Pages の例）
+> 🔐 **最重要・セキュリティ注意**：
+> 公開ホストにアップロードするのは、**アプリ本体の5ファイルだけ**にしてください。
+> ```
+> index.html  app.js  styles.css  icon.svg  manifest.webmanifest
+> ```
+> `docs/`（記事・アクセスコード運用メモ）や `verify-calculations.js`・`CLAUDE.md` を**一緒に上げないこと**。
+> `docs/` を公開すると、記事本文やコード運用メモが誰でも読めてしまいます。
+> ※このアプリは相対パス構成なので、上記5ファイルだけで完全に動作します。
+
+### 手順（Netlify Drop が最も簡単・推奨）
+1. [https://app.netlify.com/drop](https://app.netlify.com/drop) を開く（無料アカウント作成。表示名は任意の中立名でOK）。
+2. 上記**5ファイルだけを入れたフォルダ**（またはそのzip）を、ページ上にドラッグ&ドロップ。
+3. 即座に `https://<ランダム名>.netlify.app` が発行される。
+4. **Site settings → Change site name** で、中立な名前（例 `zaitaku-hiyo`）に変更 → `https://zaitaku-hiyo.netlify.app`。
+5. 更新時は、同じ場所に新しいファイルを再ドロップするだけ。
+
+### 手順（Cloudflare Pages の場合）
 1. Cloudflare アカウントを作成（表示名は任意）。
 2. **Workers & Pages → Create → Pages → Direct Upload** を選び、プロジェクト名に中立な名前（例 `zaitaku-hiyo`）を付ける。
    - GitHub連携ではなく **Direct Upload** を使えば、リポジトリのユーザー名とも切り離せます。
-3. リポジトリのファイル一式（`.git` を除く）をzip化してアップロード。
+3. 上記**5ファイルだけ**をアップロード。
 4. 発行される `https://zaitaku-hiyo.pages.dev` をnoteに掲載。
 5. 更新時は、変更後のファイルを再アップロード（または案Aの独自ドメインを紐付け）。
 
-> Netlify でも同様に、フォルダをドラッグ&ドロップするだけで `https://<好きな名前>.netlify.app` が発行されます。
+> ✅ このリポジトリには、すでに5ファイルだけをまとめた配布用フォルダ／zipを別途用意できます（制作アシスタントから受け取ったものをそのままドロップすればOK）。
 
 ---
 

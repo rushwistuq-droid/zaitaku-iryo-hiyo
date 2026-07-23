@@ -3,7 +3,7 @@ document.addEventListener('DOMContentLoaded', () => {
     // 平文コードはソースに置かず SHA-256 ハッシュで照合する。
     // コードを変更する場合は ACCESS_CODE_HASH を新しいコード（英大文字・前後空白除去）の
     // SHA-256 16進ハッシュに差し替えること（生成方法は docs/ACCESS_CODE.md 参照）。
-    const ACCESS_CODE_HASH = '265846f02a327449ae01ed9ef54fab0ca36e9a65d1e51827256f5456a7d6593e';
+    const ACCESS_CODE_HASH = 'bb7a912e5bdc667bc5c437ed0d09b14d529911f705c22bdd0fff264962d5e433';
     const ACCESS_STORAGE_KEY = 'zaitaku_unlocked';
     const accessGate = document.getElementById('access-gate');
 

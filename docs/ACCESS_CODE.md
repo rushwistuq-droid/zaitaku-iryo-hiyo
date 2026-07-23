@@ -66,9 +66,34 @@ const ACCESS_CODE_HASH = '（ここを新しいハッシュに）';
 
 ---
 
+## 院内用（ゲート無し）ビルドの作り方
+
+院内スタッフにはコード入力なしで使わせたい場合、**販売用（ゲート有り）**と**院内用（ゲート無し）**を別URLで公開する2系統運用ができます。
+
+ゲートは「`#access-gate` 要素が無ければ `app.js` の照合処理が自動でスキップされる」設計なので、**院内用は `index.html` からロック画面ブロックを外すだけ**で作れます（`app.js`・`styles.css` 等は共通のまま）。
+
+```bash
+# リポジトリ直下で実行。scratchpad等に院内用一式を書き出す
+node -e '
+const fs=require("fs");
+let h=fs.readFileSync("index.html","utf8");
+const s=h.indexOf("    <!-- アクセスコード入力ゲート");
+const a=h.indexOf("    <div class=\"app-container\">");
+const out="build-internal"; fs.mkdirSync(out,{recursive:true});
+fs.writeFileSync(out+"/index.html", h.slice(0,s)+h.slice(a));
+["app.js","styles.css","icon.svg","manifest.webmanifest"].forEach(f=>fs.copyFileSync(f,out+"/"+f));
+console.log("done:", out);
+'
+```
+
+- 書き出した5ファイルを、**販売用とは別の中立URL**（例 `zaitaku-innai.netlify.app`）にアップロードして院内に共有します。
+- 院内用URLは note には載せず、院内だけで共有してください。
+- `app.js` は共通なので、計算ロジックを更新したら**両系統とも再アップロード**してください。
+
 ## 更新履歴
 
 | 日付 | 内容 |
 |------|------|
 | 2026年7月 | アクセスコードゲート導入 |
 | 2026年7月 | コードを20桁の推測困難な文字列に変更・平文はリポジトリ非保存に |
+| 2026年7月 | 院内用（ゲート無し）ビルドの作り方を追記 |

@@ -21,7 +21,7 @@ const FEE_2026 = {
         'zashin-ippan': 2500,
         'other-clinic': 485
     },
-    prescription: 68,
+    prescription: 60,
     noPrescriptionBonus: 300,
     management: {
         home: {
@@ -154,8 +154,10 @@ function getEmergencyVisitBreakdown(clinicType, emergencyVisits, nightHolidayVis
 function getHighCostLimit(age, incomeKey, combinedMedicalTotal10) {
     const isSenior = age === '75' || age === '70';
     if (isSenior) {
+        // 現役並み所得者は平成30年8月に外来個人単位の特例上限が廃止され、
+        // 69歳以下の区分ア/イ/ウと同じ限度額（外来・入院を通算した式）を用いる
         if (incomeKey.startsWith('o70-active')) {
-            return 44400 + Math.max(0, combinedMedicalTotal10 - 567000) * 0.01;
+            return getHouseholdHighCostLimit(incomeKey, combinedMedicalTotal10);
         }
         if (incomeKey === 'o70-general') return 18000;
         if (incomeKey === 'o70-low2' || incomeKey === 'o70-low1') return 8000;
@@ -522,71 +524,71 @@ const tests = [
         p: { location: 'home', clinicType: 'kinou-kyouka', visitFreq: 2, patientStatus: 'no', clinicMeets20: true,
             homeGuidance: 'none', hasPrescription: true, emergencyVisits: 0, ratio: 0.3, useNursing: true,
             nursingRatio: 0.1, medTotal10: 10000, publicExpense: 'none', age: '69', incomeKey: 'u70-c' },
-        expectPts: 890 * 2 + 4085 + 68,
-        expectTotal: Math.round((890 * 2 + 4085 + 68) * 10 * 0.3) + 596 + 3000
+        expectPts: 890 * 2 + 4085 + 60,
+        expectTotal: Math.round((890 * 2 + 4085 + 60) * 10 * 0.3) + 596 + 3000
     },
     {
         name: '酸素指導管理（排他・1件のみ）',
         p: { location: 'home', clinicType: 'kinou-kyouka', visitFreq: 2, patientStatus: 'no', clinicMeets20: true,
             homeGuidance: 'oxygen', hasPrescription: true, emergencyVisits: 0, ratio: 0.3, useNursing: true,
             nursingRatio: 0.1, medTotal10: 10000, publicExpense: 'none', age: '69', incomeKey: 'u70-c' },
-        expectPts: 890 * 2 + 4085 + 2400 + 68
+        expectPts: 890 * 2 + 4085 + 2400 + 60
     },
     {
         name: '2割要件未達 → 月1回管理料',
         p: { location: 'home', clinicType: 'kinou-kyouka', visitFreq: 2, patientStatus: 'no', clinicMeets20: false,
             homeGuidance: 'none', hasPrescription: true, emergencyVisits: 0, ratio: 0.3, useNursing: false,
             medTotal10: 10000, publicExpense: 'none', age: '69', incomeKey: 'u70-c' },
-        expectPts: 890 * 2 + 2505 + 68
+        expectPts: 890 * 2 + 2505 + 60
     },
     {
         name: '別表8-3 → multi+150',
         p: { location: 'home', clinicType: 'kinou-kyouka', visitFreq: 2, patientStatus: 'houkatsu', clinicMeets20: true,
             homeGuidance: 'none', hasPrescription: true, emergencyVisits: 0, ratio: 0.3, useNursing: false,
             medTotal10: 10000, publicExpense: 'none', age: '69', incomeKey: 'u70-c' },
-        expectPts: 890 * 2 + 4085 + 150 + 68
+        expectPts: 890 * 2 + 4085 + 150 + 60
     },
     {
         name: '別表8-2重症 → severeMulti',
         p: { location: 'home', clinicType: 'kinou-kyouka', visitFreq: 2, patientStatus: 'severe', clinicMeets20: true,
             homeGuidance: 'none', hasPrescription: true, emergencyVisits: 0, ratio: 0.3, useNursing: false,
             medTotal10: 10000, publicExpense: 'none', age: '69', incomeKey: 'u70-c' },
-        expectPts: 890 * 2 + 4985 + 68
+        expectPts: 890 * 2 + 4985 + 60
     },
     {
         name: '一般診療所 → 管理料80%',
         p: { location: 'home', clinicType: 'other-clinic', visitFreq: 2, patientStatus: 'no', clinicMeets20: true,
             homeGuidance: 'none', hasPrescription: true, emergencyVisits: 0, ratio: 0.3, useNursing: false,
             medTotal10: 10000, publicExpense: 'none', age: '69', incomeKey: 'u70-c' },
-        expectPts: 890 * 2 + Math.round(2735 * 0.8) + 68
+        expectPts: 890 * 2 + Math.round(2735 * 0.8) + 60
     },
     {
         name: '施設・在支診2',
         p: { location: 'facility', clinicType: 'zashin-ippan', visitFreq: 2, patientStatus: 'no', clinicMeets20: true,
             homeGuidance: 'none', hasPrescription: true, emergencyVisits: 0, ratio: 0.3, useNursing: true,
             nursingRatio: 0.1, medTotal10: 10000, publicExpense: 'none', age: '69', incomeKey: 'u70-c' },
-        expectPts: 215 * 2 + 2585 + 68
+        expectPts: 215 * 2 + 2585 + 60
     },
     {
         name: '施設・在支診2・同一建物2〜9人',
         p: { location: 'facility', clinicType: 'zashin-ippan', visitFreq: 2, patientStatus: 'no', clinicMeets20: true,
             buildingPatientTier: 'tier2_9', homeGuidance: 'none', hasPrescription: true, emergencyVisits: 0, ratio: 0.3,
             useNursing: false, medTotal10: 10000, publicExpense: 'none', age: '69', incomeKey: 'u70-c' },
-        expectPts: 215 * 2 + 1385 + 68
+        expectPts: 215 * 2 + 1385 + 60
     },
     {
         name: '施設・在支診2・同一建物50人以上',
         p: { location: 'facility', clinicType: 'zashin-ippan', visitFreq: 2, patientStatus: 'no', clinicMeets20: true,
             buildingPatientTier: 'tier50plus', homeGuidance: 'none', hasPrescription: true, emergencyVisits: 0, ratio: 0.3,
             useNursing: false, medTotal10: 0, publicExpense: 'none', age: '69', incomeKey: 'u70-c' },
-        expectPts: 215 * 2 + 745 + 68
+        expectPts: 215 * 2 + 745 + 60
     },
     {
         name: '施設・機能強化型・10〜19人・別表8-2',
         p: { location: 'facility', clinicType: 'kinou-kyouka', visitFreq: 2, patientStatus: 'severe', clinicMeets20: true,
             buildingPatientTier: 'tier10_19', homeGuidance: 'none', hasPrescription: true, emergencyVisits: 0, ratio: 0.3,
             useNursing: false, medTotal10: 0, publicExpense: 'none', age: '69', incomeKey: 'u70-c' },
-        expectPts: 215 * 2 + 2625 + 68
+        expectPts: 215 * 2 + 2625 + 60
     },
     {
         name: '在がん総4週・機能強化型・3割',
@@ -621,7 +623,7 @@ const tests = [
         p: { location: 'home', clinicType: 'kinou-kyouka', visitFreq: 2, patientStatus: 'no', clinicMeets20: true,
             homeGuidance: 'none', hasPrescription: true, emergencyVisits: 0, ratio: 0.1, useNursing: false,
             medTotal10: 5000, publicExpense: 'nanbyou', nanbyouLimit: '10000', age: '75', incomeKey: 'o70-general' },
-        expectTotal: Math.round((890 * 2 + 4085 + 68) * 10 * 0.1) + Math.round(5000 * 0.1)
+        expectTotal: Math.round((890 * 2 + 4085 + 60) * 10 * 0.1) + Math.round(5000 * 0.1)
     },
     {
         name: '指定難病・高額かつ長期（一般所得Ⅰ→5000）',
@@ -654,7 +656,7 @@ const tests = [
             medTotal10: 10000, publicExpense: 'jiritsu', jiritsuLimit: 'none',
             jiritsuCoveragePct: 50, age: '69', incomeKey: 'u70-c' },
         expectTotal: (() => {
-            const med10 = (890 * 2 + 4085 + 68) * 10;
+            const med10 = (890 * 2 + 4085 + 60) * 10;
             const drug10 = 10000;
             const jMed = Math.round(med10 * 0.5 * 0.1) + Math.round(med10 * 0.5 * 0.3);
             const jDrug = Math.round(drug10 * 0.5 * 0.1) + Math.round(drug10 * 0.5 * 0.3);
@@ -706,14 +708,14 @@ const tests = [
         p: { location: 'home', clinicType: 'kinou-kyouka', visitFreq: 2, patientStatus: 'no', clinicMeets20: true,
             homeGuidance: 'none', hasPrescription: true, emergencyVisits: 1, ratio: 0.3, useNursing: false,
             medTotal10: 0, publicExpense: 'none', age: '69', incomeKey: 'u70-c' },
-        expectPts: 890 * 2 + 4085 + 68 + 1545
+        expectPts: 890 * 2 + 4085 + 60 + 1545
     },
     {
         name: '緊急往診1回・一般診療所（720+325+75）',
         p: { location: 'home', clinicType: 'other-clinic', visitFreq: 2, patientStatus: 'no', clinicMeets20: true,
             homeGuidance: 'none', hasPrescription: true, emergencyVisits: 1, ratio: 0.3, useNursing: false,
             medTotal10: 0, publicExpense: 'none', age: '69', incomeKey: 'u70-c' },
-        expectPts: 890 * 2 + Math.round(2735 * 0.8) + 68 + 1120
+        expectPts: 890 * 2 + Math.round(2735 * 0.8) + 60 + 1120
     },
     {
         name: '居宅療養管理指導費Ⅱ・自宅1人298単位',
@@ -728,7 +730,7 @@ const tests = [
             homeGuidance: 'none', hasPrescription: true, emergencyVisits: 0, ratio: 0.3, useNursing: false,
             medTotal10: 0, publicExpense: 'none', age: '69', incomeKey: 'u70-c',
             addonFlags: { clinicTier: 'none', infoRenkei: true, dxAddon: '1', nursingInstruction: true } },
-        expectPts: 890 * 2 + 4085 + 68 + 100 + 11 + 300
+        expectPts: 890 * 2 + 4085 + 60 + 100 + 11 + 300
     },
     {
         name: '加算: 充実体制+頻回訪問(4回・別表8-2)',
@@ -736,7 +738,7 @@ const tests = [
             homeGuidance: 'none', hasPrescription: true, emergencyVisits: 0, ratio: 0.1, useNursing: false,
             medTotal10: 0, publicExpense: 'none', age: '75', incomeKey: 'o70-general',
             addonFlags: { clinicTier: 'jujitsu', autoFrequentVisit: true } },
-        expectPts: 890 * 4 + 4985 + 68 + 800 + 800
+        expectPts: 890 * 4 + 4985 + 60 + 800 + 800
     },
     {
         name: '加算: 頻回訪問は別表8-2のみ（一般患者は加算なし）',
@@ -744,7 +746,7 @@ const tests = [
             homeGuidance: 'none', hasPrescription: true, emergencyVisits: 0, ratio: 0.1, useNursing: false,
             medTotal10: 0, publicExpense: 'none', age: '75', incomeKey: 'o70-general',
             addonFlags: { autoFrequentVisit: true } },
-        expectPts: 890 * 4 + 4085 + 68
+        expectPts: 890 * 4 + 4085 + 60
     },
     {
         name: '加算: 在がん総+情報連携+充実体制',
@@ -758,14 +760,14 @@ const tests = [
         p: { location: 'home', clinicType: 'kinou-kyouka', visitFreq: 2, patientStatus: 'no', clinicMeets20: true,
             homeGuidance: 'none', hasPrescription: true, emergencyVisits: 1, nightHolidayVisits: 1, lateNightVisits: 0,
             ratio: 0.3, useNursing: false, medTotal10: 0, publicExpense: 'none', age: '69', incomeKey: 'u70-c' },
-        expectPts: 890 * 2 + 4085 + 68 + 1545 + 1700
+        expectPts: 890 * 2 + 4085 + 60 + 1545 + 1700
     },
     {
         name: '深夜往診1回・一般診療所（1120+485）',
         p: { location: 'home', clinicType: 'other-clinic', visitFreq: 2, patientStatus: 'no', clinicMeets20: true,
             homeGuidance: 'none', hasPrescription: true, emergencyVisits: 1, nightHolidayVisits: 0, lateNightVisits: 1,
             ratio: 0.3, useNursing: false, medTotal10: 0, publicExpense: 'none', age: '69', incomeKey: 'u70-c' },
-        expectPts: 890 * 2 + Math.round(2735 * 0.8) + 68 + 1120 + 485
+        expectPts: 890 * 2 + Math.round(2735 * 0.8) + 60 + 1120 + 485
     },
     {
         name: '加算: ターミナルケア+看取り+薬剤師同時指導',
@@ -773,7 +775,7 @@ const tests = [
             homeGuidance: 'none', hasPrescription: true, emergencyVisits: 0, ratio: 0.1, useNursing: false,
             medTotal10: 0, publicExpense: 'none', age: '75', incomeKey: 'o70-general',
             addonFlags: { terminalCare: 'tier4500', miokuri: true, pharmacistJoint: true } },
-        expectPts: 890 * 2 + 3685 + 68 + 4500 + 3000 + 300
+        expectPts: 890 * 2 + 3685 + 60 + 4500 + 3000 + 300
     },
     {
         name: '当院デフォルト加算（DX1+物価+データ+連携+ベースアップ）',
@@ -781,7 +783,7 @@ const tests = [
             homeGuidance: 'none', hasPrescription: true, emergencyVisits: 0, ratio: 0.3, useNursing: false,
             medTotal10: 0, publicExpense: 'none', age: '69', incomeKey: 'u70-c',
             addonFlags: { dxAddon: '1', infoRenkei: true, dataSubmit: true, bukkaVisit: true, baseUpVisit: true } },
-        expectPts: 890 * 2 + 4085 + 68 + 11 + 100 + 50 + (2 * 3) + (2 * 79) + 2 + 4
+        expectPts: 890 * 2 + 4085 + 60 + 11 + 100 + 50 + (2 * 3) + (2 * 79) + 2 + 4
     },
     {
         name: '在がん総4週・一般診療所（80%減算）',
@@ -794,14 +796,14 @@ const tests = [
         p: { location: 'home', clinicType: 'zashin-ippan', visitFreq: 2, patientStatus: 'no', clinicMeets20: true,
             buildingPatientTier: 'tier2_9', homeGuidance: 'none', hasPrescription: true, emergencyVisits: 0, ratio: 0.3,
             useNursing: false, medTotal10: 0, publicExpense: 'none', age: '69', incomeKey: 'u70-c' },
-        expectPts: 890 * 2 + 1985 + 68
+        expectPts: 890 * 2 + 1985 + 60
     },
     {
         name: '月12回超減算（5回訪問・5回目50%）',
         p: { location: 'home', clinicType: 'kinou-kyouka', visitFreq: 5, patientStatus: 'no', clinicMeets20: true,
             over12Avg: true, homeGuidance: 'none', hasPrescription: true, emergencyVisits: 0, ratio: 0.3,
             useNursing: false, medTotal10: 0, publicExpense: 'none', age: '69', incomeKey: 'u70-c' },
-        expectPts: 890 * 4 + Math.round(890 * 0.5) + 4085 + 68
+        expectPts: 890 * 4 + Math.round(890 * 0.5) + 4085 + 60
     },
     {
         name: '薬剤師同時指導・一般診療所は算定不可',
@@ -809,14 +811,14 @@ const tests = [
             homeGuidance: 'none', hasPrescription: true, emergencyVisits: 0, ratio: 0.1, useNursing: false,
             medTotal10: 0, publicExpense: 'none', age: '75', incomeKey: 'o70-general',
             addonFlags: { pharmacistJoint: true } },
-        expectPts: 890 * 2 + Math.round(2735 * 0.8) + 68
+        expectPts: 890 * 2 + Math.round(2735 * 0.8) + 60
     },
     {
         name: '高額療養費・70歳未満区分ウ（段階制）',
         p: { location: 'home', clinicType: 'kinou-kyouka', visitFreq: 2, patientStatus: 'no', clinicMeets20: true,
             homeGuidance: 'oxygen', hasPrescription: true, emergencyVisits: 0, ratio: 0.3, useNursing: false,
             medTotal10: 500000, publicExpense: 'none', age: '69', incomeKey: 'u70-c' },
-        expectTotalCap: 80100 + (83330 + 500000 - 267000) * 0.01
+        expectTotalCap: 80100 + (83250 + 500000 - 267000) * 0.01
     },
     {
         name: '高額療養費・70歳未満区分オ',
@@ -837,14 +839,14 @@ const tests = [
         p: { location: 'home', clinicType: 'kinou-kyouka', visitFreq: 2, patientStatus: 'no', clinicMeets20: true,
             homeGuidance: 'oxygen', hasPrescription: true, emergencyVisits: 0, ratio: 0.1, useNursing: false,
             medTotal10: 100000, publicExpense: 'none', age: '75', incomeKey: 'o70-active1' },
-        expectTotal: Math.round(83330 * 0.1) + Math.round(100000 * 0.1)
+        expectTotal: Math.round(83250 * 0.1) + Math.round(100000 * 0.1)
     },
     {
-        name: '高額療養費・現役並みⅠ（上限適用）',
+        name: '高額療養費・現役並みⅠ（上限適用・69歳以下区分ウと同式）',
         p: { location: 'home', clinicType: 'kinou-kyouka', visitFreq: 2, patientStatus: 'no', clinicMeets20: true,
             homeGuidance: 'oxygen', hasPrescription: true, emergencyVisits: 0, ratio: 0.1, useNursing: false,
-            medTotal10: 500000, publicExpense: 'none', age: '75', incomeKey: 'o70-active1' },
-        expectTotalCap: 44400 + Math.max(0, 83330 + 500000 - 567000) * 0.01
+            medTotal10: 1000000, publicExpense: 'none', age: '75', incomeKey: 'o70-active1' },
+        expectTotalCap: 80100 + Math.max(0, 83250 + 1000000 - 267000) * 0.01
     },
     {
         name: '指定難病・上限2500',
@@ -875,14 +877,14 @@ const tests = [
             homeGuidance: 'none', hasPrescription: true, emergencyVisits: 0, ratio: 0.1, useNursing: false,
             medTotal10: 0, publicExpense: 'none', age: '75', incomeKey: 'o70-general',
             addonFlags: { autoFrequentVisit: true } },
-        expectPts: 890 * 5 + 4985 + 68 + 800 + 300
+        expectPts: 890 * 5 + 4985 + 60 + 800 + 300
     },
     {
         name: '機能強化型・病床あり・別表8-2',
         p: { location: 'home', clinicType: 'kinou-kyouka', kinouBedType: 'withBed', visitFreq: 2, patientStatus: 'severe',
             clinicMeets20: true, homeGuidance: 'none', hasPrescription: true, emergencyVisits: 0, ratio: 0.3,
             useNursing: false, medTotal10: 0, publicExpense: 'none', age: '69', incomeKey: 'u70-c' },
-        expectPts: 890 * 2 + 5385 + 68
+        expectPts: 890 * 2 + 5385 + 60
     },
     {
         name: '充実体制加算・同一建物2〜9人（400点）',
@@ -890,7 +892,7 @@ const tests = [
             buildingPatientTier: 'tier2_9', homeGuidance: 'none', hasPrescription: true, emergencyVisits: 0, ratio: 0.3,
             useNursing: false, medTotal10: 0, publicExpense: 'none', age: '69', incomeKey: 'u70-c',
             addonFlags: { clinicTier: 'jujitsu' } },
-        expectPts: 890 * 2 + 2185 + 68 + 400
+        expectPts: 890 * 2 + 2185 + 60 + 400
     },
     {
         name: '高額療養費・70歳以上世帯上限（他世帯員5万円）',

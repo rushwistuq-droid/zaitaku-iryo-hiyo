@@ -161,7 +161,7 @@ document.addEventListener('DOMContentLoaded', () => {
             'zashin-ippan': 2500,
             'other-clinic': 485
         },
-        prescription: 68,
+        prescription: 60,
         noPrescriptionBonus: 300,
         management: {
             home: {
@@ -330,8 +330,10 @@ document.addEventListener('DOMContentLoaded', () => {
     function getHighCostLimit(age, incomeKey, combinedMedicalTotal10) {
         const isSenior = age === '75' || age === '70';
         if (isSenior) {
+            // 現役並み所得者は平成30年8月に外来個人単位の特例上限が廃止され、
+            // 69歳以下の区分ア/イ/ウと同じ限度額（外来・入院を通算した式）を用いる
             if (incomeKey === 'o70-active3' || incomeKey === 'o70-active2' || incomeKey === 'o70-active1') {
-                return 44400 + Math.max(0, combinedMedicalTotal10 - 567000) * 0.01;
+                return getHouseholdHighCostLimit(incomeKey, combinedMedicalTotal10);
             }
             if (incomeKey === 'o70-general') return 18000;
             if (incomeKey === 'o70-low2' || incomeKey === 'o70-low1') return 8000;

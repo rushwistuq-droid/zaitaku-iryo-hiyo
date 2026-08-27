@@ -5,7 +5,8 @@
 **在宅医療（訪問診療）費用シミュレーター** — 患者・家族向けの月額自己負担概算ツール。  
 令和8年度（2026年6月施行）診療報酬に基づく。有料note販売を想定した「概算」であり、請求確定ソフトではない。
 
-- **公開URL:** https://rushwistuq-droid.github.io/zaitaku-iryo-hiyo/
+- **公開URL（有料note）:** https://zaitaku-hiyo.netlify.app/（Netlify Drop・手動更新。手順は `docs/NETLIFY_UPDATE.md`）
+- **開発用 GitHub Pages:** https://rushwistuq-droid.github.io/zaitaku-iryo-hiyo/
 - **リポジトリ:** https://github.com/rushwistuq-droid/zaitaku-iryo-hiyo
 - **詳細引き継ぎ:** `docs/HANDOVER.md` を必ず読むこと
 
@@ -13,12 +14,12 @@
 
 - **フレームワークなし** — 素の HTML / CSS / JavaScript（ビルド・npm・バンドラ不要）
 - **Node.js** — `verify-calculations.js` の検証テストのみ（v20推奨）
-- **デプロイ** — GitHub Pages（`main` への push で自動）
+- **デプロイ** — 購入者向けは Netlify Drop（`netlify-drop/` の5ファイル）。GitHub Pages は `main` push で自動（開発・参照用）
 
 ## 必須ルール
 
 1. **計算ロジックは二重管理** — `app.js` と `verify-calculations.js` を常に同期する。片方だけ直さない。
-2. **変更後は必ず** `node verify-calculations.js` を実行し、51件すべてパスすること。
+2. **変更後は必ず** `node verify-calculations.js` を実行し、全件パスすること（現状55件）。ツール本体を直したら **Netlify も再ドロップ**（`docs/NETLIFY_UPDATE.md`）。
 3. **最小差分** — 依頼外のリファクタ・ファイル追加（特に未依頼の .md）を避ける。
 4. **点数表** — `FEE_2026` 定数が唯一の料金ソース。2026年6月改定（令和8年度）準拠。
 5. **日本語UI** — ラベル・説明文・コミットメッセージは日本語で統一。

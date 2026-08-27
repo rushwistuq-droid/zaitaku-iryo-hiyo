@@ -194,8 +194,13 @@ document.addEventListener('DOMContentLoaded', () => {
             cancer: { points: 1500, label: '在宅悪性腫瘍患者指導管理料' },
             wound: { points: 1050, label: '在宅寝たきり患者処置指導管理料' }
         },
+        // C003 在宅がん医療総合診療料は「1日につき」。要件を満たした週は原則7日分算定。
         cancerCare: {
-            section1: { withRx: 1650, withoutRx: 1852 },
+            daysPerWeek: 7,
+            section1: {
+                bedless: { withRx: 1650, withoutRx: 1852 },
+                withBed: { withRx: 1800, withoutRx: 2002 }
+            },
             section2: { withRx: 1495, withoutRx: 1687 }
         },
         nursingGuide: { home: 298, facility: 286 },
@@ -401,16 +406,19 @@ document.addEventListener('DOMContentLoaded', () => {
         };
     }
 
-    function getCancerCareRates(section) {
-        if (section === 'section1') return FEE_2026.cancerCare.section1;
-        const base = FEE_2026.cancerCare.section2;
-        if (section === 'section3') {
-            return {
-                withRx: Math.round(base.withRx * FEE_2026.section3ManageRatio),
-                withoutRx: Math.round(base.withoutRx * FEE_2026.section3ManageRatio)
-            };
+    function getCancerCareRates(section, kinouBedType) {
+        // 在がん総は在支診・在支病のみ算定可（一般診療所は対象外）
+        if (section === 'section3') return null;
+        if (section === 'section1') {
+            const variant = kinouBedType === 'withBed' ? 'withBed' : 'bedless';
+            return FEE_2026.cancerCare.section1[variant];
         }
-        return base;
+        return FEE_2026.cancerCare.section2;
+    }
+
+    function getCancerCarePoints(dailyRate, weeks) {
+        const days = FEE_2026.cancerCare.daysPerWeek;
+        return dailyRate * days * Math.max(0, weeks || 0);
     }
 
     function getVisitPoints(location, visitFreq, over12Avg) {
@@ -561,8 +569,15 @@ document.addEventListener('DOMContentLoaded', () => {
         let addonItems = [];
 
         if (applyCancerCare) {
-            const rates = getCancerCareRates(section);
-            breakdown.cancer = (hasPrescription ? rates.withRx : rates.withoutRx) * cancerCareWeeks;
+            const rates = getCancerCareRates(section, kinouBedType);
+            if (!rates) {
+                return {
+                    totalPoints: 0, breakdown, addonItems: [],
+                    guidanceLabel: '在がん総は在支診・在支病のみ算定可'
+                };
+            }
+            const dailyRate = hasPrescription ? rates.withRx : rates.withoutRx;
+            breakdown.cancer = getCancerCarePoints(dailyRate, cancerCareWeeks);
             const addonResult = calculateAddonPoints({
                 applyCancerCare, clinicType, visitFreq, cancerCareWeeks, emergencyVisits: 0,
                 addonFlags, location, hasPrescription, patientStatus, buildingPatientTier
@@ -1054,7 +1069,7 @@ document.addEventListener('DOMContentLoaded', () => {
             age, useNursing, publicExpense, hasPrescription, visitFreq, emergencyVisits,
             applyCancerCare, hasDisabilityCert, homeGuidanceType, clinicMeets20, patientStatus, clinicType,
             buildingPatientTier, addonItems, addonFlags, over12Avg, location,
-            useHouseholdHighCost, householdOtherCopay, kinouBedType
+            useHouseholdHighCost, householdOtherCopay, kinouBedType, cancerCareWeeks
         });
         updatePrintData({
             age, medicalRatio, location, incomeKey, visitFreq, emergencyVisits,
@@ -1099,7 +1114,7 @@ document.addEventListener('DOMContentLoaded', () => {
             age, useNursing, publicExpense, hasPrescription, visitFreq, emergencyVisits,
             applyCancerCare, hasDisabilityCert, homeGuidanceType, clinicMeets20, patientStatus, clinicType,
             buildingPatientTier, addonItems, addonFlags, over12Avg, location,
-            useHouseholdHighCost, householdOtherCopay, kinouBedType
+            useHouseholdHighCost, householdOtherCopay, kinouBedType, cancerCareWeeks
         } = ctx;
         const isSenior = age === '75' || age === '70';
         const items = [];
@@ -1107,7 +1122,19 @@ document.addEventListener('DOMContentLoaded', () => {
         items.push('<strong>2026年度改定</strong>（令和8年6月施行）の診療報酬点数に基づく概算です。');
 
         if (applyCancerCare) {
-            items.push('<strong>在がん総</strong>: 週単位の包括請求です。訪問診療・管理料・在宅療養指導管理料・往診・酸素・処方等が包括され、在宅療養指導管理料は別途算定できません。');
+            if (clinicType === 'other-clinic') {
+                items.push('<strong>在がん総</strong>: 一般診療所（在支診以外）では算定できません。在宅療養支援診療所または在宅療養支援病院でのみ算定可能です。');
+            } else {
+                const rates = getCancerCareRates(
+                    CLINIC_SECTION[clinicType] || 'section2',
+                    kinouBedTypeSelect?.value || 'bedless'
+                );
+                const daily = rates ? (hasPrescription ? rates.withRx : rates.withoutRx) : 0;
+                const days = FEE_2026.cancerCare.daysPerWeek;
+                items.push(
+                    `<strong>在がん総</strong>: 「1日につき」の包括点数です。要件を満たした週は<strong>${daily.toLocaleString()}点 × ${days}日 = ${(daily * days).toLocaleString()}点/週</strong>を算定し、月${cancerCareWeeks || 4}週分で概算しています。訪問診療・管理料・指導管理料・往診・訪問看護等が包括されます。`
+                );
+            }
         } else {
             items.push('<strong>在宅療養指導管理料</strong>: 同一月・同一医療機関では<strong>主たる1件のみ</strong>算定（点数の高いもの）。材料加算・薬剤は別途算定可。');
             if (homeGuidanceType !== 'none') {
@@ -1251,7 +1278,7 @@ document.addEventListener('DOMContentLoaded', () => {
         document.getElementById('print-income').textContent = incomeText;
 
         document.getElementById('print-frequency').textContent = applyCancerCare
-            ? `在がん総 ${cancerCareWeeks}週`
+            ? `在がん総 ${cancerCareWeeks}週（1日×7日×${cancerCareWeeks}週）`
             : `${visitFreq}回/月`;
         document.getElementById('print-emergency').textContent = applyCancerCare
             ? '包括内' : `${emergencyVisits}回/月`;
@@ -1269,7 +1296,7 @@ document.addEventListener('DOMContentLoaded', () => {
         document.getElementById('print-detail-medication-val').textContent = medicationCopay.toLocaleString();
 
         document.getElementById('print-detail-medical-desc').textContent = applyCancerCare
-            ? `在宅がん医療総合診療料（${cancerCareWeeks}週）`
+            ? `在宅がん医療総合診療料（1日×7日×${cancerCareWeeks}週）`
             : `訪問診療＋在宅管理料＋${guidanceLabel}`;
         const addonText = addonItems && addonItems.length > 0
             ? addonItems.map(a => `${a.label} ${a.points}点`).join(' / ')

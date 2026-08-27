@@ -180,9 +180,9 @@
                             <label for="apply-cancer-care">在宅がん医療総合診療料（在がん総）の適用</label>
                             <select id="apply-cancer-care" class="form-control">
                                 <option value="no" selected>適用しない（通常の出来高＋管理料）</option>
-                                <option value="yes">適用する（週単位の包括請求・末期がん等）</option>
+                                <option value="yes">適用する（1日単位×週7日の包括請求・末期がん等）</option>
                             </select>
-                            <span class="help-text">※末期悪性腫瘍等の患者に対する週単位の包括請求システムです。</span>
+                            <span class="help-text">※在支診・在支病のみ算定可。点数は「1日につき」で、要件を満たした週は原則7日分（例: 1,650点×7日=11,550点/週）を算定します。</span>
                         </div>
 
                         <div id="cancer-care-details" class="public-details-panel hidden">
@@ -192,7 +192,7 @@
                                     <input type="range" id="cancer-care-weeks" min="1" max="5" value="4" class="range-slider">
                                     <span class="range-value"><strong id="cancer-care-weeks-val">4</strong>週分</span>
                                 </div>
-                                <span class="help-text">※通常は1ヶ月あたり4週分（または5週分）算定します。</span>
+                                <span class="help-text">※通常は月4週（または5週）。月額 = 1日点数 × 7日 × 週数。開始・終了週は対象日数分のみの場合あり。</span>
                             </div>
                         </div>
 

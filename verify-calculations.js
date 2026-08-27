@@ -92,8 +92,13 @@ const FEE_2026 = {
     guidance: {
         none: 0, oxygen: 2400, injection: 650, catheter: 1400, cancer: 1500, wound: 1050
     },
+    // C003 在宅がん医療総合診療料は「1日につき」。要件を満たした週は原則7日分算定。
     cancerCare: {
-        section1: { withRx: 1650, withoutRx: 1852 },
+        daysPerWeek: 7,
+        section1: {
+            bedless: { withRx: 1650, withoutRx: 1852 },
+            withBed: { withRx: 1800, withoutRx: 2002 }
+        },
         section2: { withRx: 1495, withoutRx: 1687 }
     },
     nursingGuide: { home: 298, facility: 286 },
@@ -360,16 +365,17 @@ function applyPublicExpenseCore(params) {
     return { medical, medication, nursing };
 }
 
-function getCancerCareRates(section) {
-    if (section === 'section1') return FEE_2026.cancerCare.section1;
-    const base = FEE_2026.cancerCare.section2;
-    if (section === 'section3') {
-        return {
-            withRx: Math.round(base.withRx * FEE_2026.section3ManageRatio),
-            withoutRx: Math.round(base.withoutRx * FEE_2026.section3ManageRatio)
-        };
+function getCancerCareRates(section, kinouBedType) {
+    if (section === 'section3') return null;
+    if (section === 'section1') {
+        const variant = kinouBedType === 'withBed' ? 'withBed' : 'bedless';
+        return FEE_2026.cancerCare.section1[variant];
     }
-    return base;
+    return FEE_2026.cancerCare.section2;
+}
+
+function getCancerCarePoints(dailyRate, weeks) {
+    return dailyRate * FEE_2026.cancerCare.daysPerWeek * Math.max(0, weeks || 0);
 }
 
 function getVisitPoints(location, visitFreq, over12Avg) {
@@ -447,8 +453,10 @@ function calculateAddonPoints(p) {
 function calcPoints(p) {
     const section = CLINIC_SECTION[p.clinicType] || 'section2';
     if (p.applyCancerCare) {
-        const r = getCancerCareRates(section);
-        return (p.hasPrescription ? r.withRx : r.withoutRx) * p.cancerCareWeeks + calculateAddonPoints(p);
+        const r = getCancerCareRates(section, p.kinouBedType);
+        if (!r) return calculateAddonPoints(p);
+        const daily = p.hasPrescription ? r.withRx : r.withoutRx;
+        return getCancerCarePoints(daily, p.cancerCareWeeks) + calculateAddonPoints(p);
     }
     const loc = p.location === 'home' ? 'home' : 'facility';
     let pts = getVisitPoints(p.location, p.visitFreq, p.over12Avg);
@@ -591,11 +599,26 @@ const tests = [
         expectPts: 215 * 2 + 2625 + 60
     },
     {
-        name: '在がん総4週・機能強化型・3割',
+        name: '在がん総4週・機能強化型・1日×7日×4週',
         p: { applyCancerCare: true, clinicType: 'kinou-kyouka', cancerCareWeeks: 4, hasPrescription: true,
             ratio: 0.3, useNursing: false, medTotal10: 10000, publicExpense: 'none', age: '69', incomeKey: 'u70-c' },
-        expectPts: 1650 * 4,
-        expectTotal: 1650 * 4 * 10 * 0.3 + 3000
+        expectPts: 1650 * 7 * 4,
+        // 3割だと高額療養費（区分ウ）が適用される
+        expectTotalCap: 80100 + (1650 * 7 * 4 * 10 + 10000 - 267000) * 0.01
+    },
+    {
+        name: '在がん総4週・若年3割・高額適用後の自己負担',
+        p: { applyCancerCare: true, clinicType: 'kinou-kyouka', cancerCareWeeks: 4, hasPrescription: true,
+            ratio: 0.3, useNursing: false, medTotal10: 0, publicExpense: 'none', age: '69', incomeKey: 'u70-c' },
+        expectPts: 1650 * 7 * 4,
+        expectTotalCap: 80100 + (1650 * 7 * 4 * 10 - 267000) * 0.01
+    },
+    {
+        name: '在がん総4週・後期高齢1割（個人上限18000）',
+        p: { applyCancerCare: true, clinicType: 'kinou-kyouka', cancerCareWeeks: 4, hasPrescription: true,
+            ratio: 0.1, useNursing: false, medTotal10: 0, publicExpense: 'none', age: '75', incomeKey: 'o70-general' },
+        expectPts: 1650 * 7 * 4,
+        expectTotalCap: 18000
     },
     {
         name: '後期高齢1割・一般所得・高額適用',
@@ -753,7 +776,26 @@ const tests = [
         p: { applyCancerCare: true, clinicType: 'kinou-kyouka', cancerCareWeeks: 4, hasPrescription: true,
             ratio: 0.1, useNursing: false, medTotal10: 0, publicExpense: 'none', age: '75', incomeKey: 'o70-general',
             addonFlags: { clinicTier: 'jujitsu', infoRenkei: true } },
-        expectPts: 1650 * 4 + 100 + 300
+        expectPts: 1650 * 7 * 4 + 100 + 300
+    },
+    {
+        name: '在がん総・病床あり・院外処方（1800点×7×4）',
+        p: { applyCancerCare: true, clinicType: 'kinou-kyouka', kinouBedType: 'withBed', cancerCareWeeks: 4,
+            hasPrescription: true, ratio: 0.1, useNursing: false, medTotal10: 0, publicExpense: 'none',
+            age: '75', incomeKey: 'o70-general' },
+        expectPts: 1800 * 7 * 4
+    },
+    {
+        name: '在がん総・在支診2・院外処方（1495点×7×4）',
+        p: { applyCancerCare: true, clinicType: 'zashin-ippan', cancerCareWeeks: 4, hasPrescription: true,
+            ratio: 0.1, useNursing: false, medTotal10: 0, publicExpense: 'none', age: '75', incomeKey: 'o70-general' },
+        expectPts: 1495 * 7 * 4
+    },
+    {
+        name: '在がん総・一般診療所は算定不可（0点）',
+        p: { applyCancerCare: true, clinicType: 'other-clinic', cancerCareWeeks: 4, hasPrescription: true,
+            ratio: 0.3, useNursing: false, medTotal10: 0, publicExpense: 'none', age: '69', incomeKey: 'u70-c' },
+        expectPts: 0
     },
     {
         name: '夜間・休日往診1回・機能強化型（1545+1700）',
@@ -784,12 +826,6 @@ const tests = [
             medTotal10: 0, publicExpense: 'none', age: '69', incomeKey: 'u70-c',
             addonFlags: { dxAddon: '1', infoRenkei: true, dataSubmit: true, bukkaVisit: true, baseUpVisit: true } },
         expectPts: 890 * 2 + 4085 + 60 + 11 + 100 + 50 + (2 * 3) + (2 * 79) + 2 + 4
-    },
-    {
-        name: '在がん総4週・一般診療所（80%減算）',
-        p: { applyCancerCare: true, clinicType: 'other-clinic', cancerCareWeeks: 4, hasPrescription: true,
-            ratio: 0.3, useNursing: false, medTotal10: 0, publicExpense: 'none', age: '69', incomeKey: 'u70-c' },
-        expectPts: Math.round(1495 * 0.8) * 4
     },
     {
         name: '自宅・在支診2・同一建物2〜9人',

@@ -55,10 +55,17 @@ python3 -m http.server 8080
 
 - `FEE_2026` — 点数表定数
 - `calculateMedicalPoints()` — 診療点数合計
+- `getCancerCarePoints()` — 在がん総（**1日点数 × 7日 × 週数**。週数だけ掛けないこと）
 - `applyPublicExpense()` — 公費・高額療養費・障害者助成
 - `getManagementPoints()` — 在医総管/施医総管（建物区分・病床区分）
 - `calculateAddonPoints()` — 各種加算
 - `updateCalculations()` — UIからのエントリポイント
+
+## 重要な注意（在がん総）
+
+C003は告示どおり「**1日につき**」。要件を満たした週は原則 **7日分** 算定する。  
+誤: `1650 × 週数` / 正: `1650 × 7 × 週数`  
+一般診療所（在支診以外）は在がん総を算定できない。
 
 ## 未実装（意図的簡略化・今後の候補）
 

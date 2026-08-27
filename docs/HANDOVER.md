@@ -95,7 +95,7 @@ updateDonutChart / updateAdvice / updatePrintData  … 結果表示
 | `management` | 在医総管・施医総管（home/facility × section1-3 × 建物5区分） |
 | `management.section1` | 機能強化型のみ `bedless` / `withBed` の二層 |
 | `addons` | 加算（充実体制は `clinicTierByBuilding` で建物区分逓減） |
-| `cancerCare` | 在がん総（section1/2、section3は80%減算） |
+| `cancerCare` | 在がん総（**1日点数 × 7日 × 週数**。section1は病床あり/なし。一般診療所は算定不可） |
 | `guidance` | 在宅療養指導管理料（排他1件） |
 
 ### 4.3 診療所区分
@@ -203,7 +203,7 @@ python3 -m http.server 8080
 - [x] 同一建物5区分（自宅・施設）
 - [x] 機能強化型 病床あり/なし
 - [x] 一般診療所 管理料80%減算
-- [x] 在がん総（週単位包括・section3 80%）
+- [x] 在がん総（**1日×7日×週数**の包括・病床区分対応。在支診・在支病のみ）
 - [x] 在宅療養指導管理料（排他1件）
 - [x] 緊急往診（昼夜・休日・深夜帯）
 - [x] 月12回超減算（5回目以降50%）
@@ -256,7 +256,7 @@ python3 -m http.server 8080
 2. **`FEE_2026.management.section1` の構造** → `bedless`/`withBed` の二層。他sectionはフラットな5区分
 3. **頻回訪問加算** → `patientStatus === 'severe'`（別表8-2）かつ月4回以上のみ
 4. **薬剤師同時指導料** → 自宅・在医総管（`clinicType !== 'other-clinic'`）のみ
-5. **在がん総時** → 訪問・管理料は包括。`visitFreq` は無効化
+5. **在がん総** → 「1日につき」×原則7日×週数。訪問・管理料は包括。`visitFreq` は無効化。一般診療所は算定不可。
 6. **GitHub Pages** → `main` 以外のブランチでは本番URLは更新されない
 
 ---
@@ -298,3 +298,4 @@ python3 -m http.server 8080
 | 日付 | 内容 |
 |------|------|
 | 2026-07-11 | Claude Code 引き継ぎ手順書初版作成 |
+| 2026-08-27 | 在がん総を「1日×7日×週数」に修正（過少計上の解消）。一般診療所は算定不可 |

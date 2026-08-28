@@ -14,6 +14,18 @@
 
 ---
 
+## ダウンロード（zip）
+
+| 用途 | ダウンロード |
+|------|--------------|
+| **有料note向け**（https://zaitaku-hiyo.netlify.app/） | https://github.com/rushwistuq-droid/zaitaku-iryo-hiyo/raw/main/netlify-packages/zaitaku-hiyo-note-netlify-drop.zip |
+| 院内用（別サイト・ゲートなし） | https://github.com/rushwistuq-droid/zaitaku-iryo-hiyo/raw/main/netlify-packages/zaitaku-hiyo-innai-netlify-drop.zip |
+
+リンクをクリックして zip を保存 → 解凍 → Netlify の **Deploys** にドラッグ＆ドロップ。  
+フォルダ版は `netlify-drop/`（有料note）・`netlify-drop-internal/`（院内）でも同じ中身です。
+
+---
+
 ## アップロードするファイル（5つのみ）
 
 リポジトリ直下の次の5ファイル、またはフォルダ `netlify-drop/` の中身だけを上げます。
@@ -56,24 +68,7 @@ manifest.webmanifest
 
 ## 関連ドキュメント
 
+- `netlify-packages/README.md` … 上記 zip のダウンロードリンク一覧
 - `docs/URL_MIGRATION.md` … 初回の Netlify 移設手順（案B）
 - `docs/ACCESS_CODE.md` … コード変更・院内用ゲート無しビルド
 - `docs/NOTE_SALES_GUIDE.md` … 公開済みnote本文の金額差し替え表
-
----
-
-## 院内用（アクセスコードなし）
-
-院内スタッフ向けは **別の Netlify サイト**（例 `zaitaku-innai.netlify.app`）に、ゲートなし版をアップロードします。
-
-### ダウンロード
-
-| 用途 | zip |
-|------|-----|
-| 有料note向け | `netlify-packages/zaitaku-hiyo-note-netlify-drop.zip` |
-| **院内用** | **`netlify-packages/zaitaku-hiyo-innai-netlify-drop.zip`** |
-
-GitHub 上で zip を開き **Download** → 解凍 → Netlify の院内用サイトにドロップ。  
-フォルダ `netlify-drop-internal/` の中身5ファイルでも同じです。
-
-詳細: `docs/ACCESS_CODE.md` の「院内用（ゲート無し）ビルド」

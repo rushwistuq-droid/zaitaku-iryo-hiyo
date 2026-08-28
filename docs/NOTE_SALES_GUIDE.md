@@ -35,7 +35,7 @@
 
 `NOTE_ARTICLE.md` のケースD・FAQはこの内容に合わせて更新済みです。公開中のnote本文を開き、該当箇所をコピーし直してください。
 
-あわせて **Netlify 上のツール本体も再アップロード**してください（現状の https://zaitaku-hiyo.netlify.app/ は旧計算のままです）。手順は `docs/NETLIFY_UPDATE.md`。配布用フォルダはリポジトリの `netlify-drop/` です。
+あわせて **Netlify 上のツール本体も再アップロード**してください。zip は [有料note用ダウンロード](https://github.com/rushwistuq-droid/zaitaku-iryo-hiyo/raw/main/netlify-packages/zaitaku-hiyo-note-netlify-drop.zip) または `netlify-drop/` フォルダ。手順は `docs/NETLIFY_UPDATE.md`。
 
 ---
 
@@ -49,6 +49,7 @@
 
 **公開URL（有料note・購入者向け）:** https://zaitaku-hiyo.netlify.app/  
 （アクセスコード付き。更新手順は `docs/NETLIFY_UPDATE.md`）  
+**Netlify用zip（有料note・再アップロード用）:** https://github.com/rushwistuq-droid/zaitaku-iryo-hiyo/raw/main/netlify-packages/zaitaku-hiyo-note-netlify-drop.zip  
 参考・開発用 GitHub Pages: https://rushwistuq-droid.github.io/zaitaku-iryo-hiyo/
 
 ---

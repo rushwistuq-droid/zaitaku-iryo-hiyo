@@ -156,16 +156,48 @@ function getEmergencyVisitBreakdown(clinicType, emergencyVisits, nightHolidayVis
         + ln * getEmergencyVisitPoints(clinicType, 'lateNight');
 }
 
+// 令和8年8月診療分～の高額療養費自己負担限度額（2026年制度改正）
+const HIGH_COST_LIMITS_2026 = {
+    tierA: { base: 270300, threshold: 901000 },
+    tierB: { base: 179100, threshold: 597000 },
+    tierC: { base: 85800, threshold: 286000 },
+    tierD: 61500,
+    tierE: 36900,
+    seniorOutpatient: {
+        'o70-general': 22000,
+        'o70-low2': 11000,
+        'o70-low1': 8000
+    },
+    seniorHousehold: {
+        'o70-low2': 25700,
+        'o70-low1': 15700
+    },
+    annualCap: {
+        'o70-active3': 1680000, 'u70-a': 1680000,
+        'o70-active2': 1110000, 'u70-b': 1110000,
+        'o70-active1': 530000, 'u70-c': 530000,
+        'o70-general': 530000, 'u70-d': 530000,
+        'o70-low2': 290000, 'u70-e': 290000,
+        'o70-low1': 180000
+    },
+    annualOutpatientCap: {
+        'o70-general': 216000,
+        'o70-low2': 96000
+    }
+};
+
+function tieredHighCostLimit(tier, combinedMedicalTotal10) {
+    return tier.base + Math.max(0, combinedMedicalTotal10 - tier.threshold) * 0.01;
+}
+
 function getHighCostLimit(age, incomeKey, combinedMedicalTotal10) {
     const isSenior = age === '75' || age === '70';
     if (isSenior) {
-        // 現役並み所得者は平成30年8月に外来個人単位の特例上限が廃止され、
-        // 69歳以下の区分ア/イ/ウと同じ限度額（外来・入院を通算した式）を用いる
         if (incomeKey.startsWith('o70-active')) {
             return getHouseholdHighCostLimit(incomeKey, combinedMedicalTotal10);
         }
-        if (incomeKey === 'o70-general') return 18000;
-        if (incomeKey === 'o70-low2' || incomeKey === 'o70-low1') return 8000;
+        const outpatient = HIGH_COST_LIMITS_2026.seniorOutpatient[incomeKey];
+        if (outpatient != null) return outpatient;
     } else {
         return getHouseholdHighCostLimit(incomeKey, combinedMedicalTotal10);
     }
@@ -173,19 +205,20 @@ function getHighCostLimit(age, incomeKey, combinedMedicalTotal10) {
 }
 
 function getHouseholdHighCostLimit(incomeKey, combinedMedicalTotal10) {
+    const L = HIGH_COST_LIMITS_2026;
     if (incomeKey === 'o70-active3' || incomeKey === 'u70-a') {
-        return 252600 + Math.max(0, combinedMedicalTotal10 - 842000) * 0.01;
+        return tieredHighCostLimit(L.tierA, combinedMedicalTotal10);
     }
     if (incomeKey === 'o70-active2' || incomeKey === 'u70-b') {
-        return 167400 + Math.max(0, combinedMedicalTotal10 - 558000) * 0.01;
+        return tieredHighCostLimit(L.tierB, combinedMedicalTotal10);
     }
     if (incomeKey === 'o70-active1' || incomeKey === 'u70-c') {
-        return 80100 + Math.max(0, combinedMedicalTotal10 - 267000) * 0.01;
+        return tieredHighCostLimit(L.tierC, combinedMedicalTotal10);
     }
-    if (incomeKey === 'o70-general' || incomeKey === 'u70-d') return 57600;
-    if (incomeKey === 'o70-low2') return 24600;
-    if (incomeKey === 'o70-low1') return 15000;
-    if (incomeKey === 'u70-e') return 35400;
+    if (incomeKey === 'o70-general' || incomeKey === 'u70-d') return L.tierD;
+    if (incomeKey === 'o70-low2') return L.seniorHousehold['o70-low2'];
+    if (incomeKey === 'o70-low1') return L.seniorHousehold['o70-low1'];
+    if (incomeKey === 'u70-e') return L.tierE;
     return Infinity;
 }
 
@@ -604,28 +637,28 @@ const tests = [
             ratio: 0.3, useNursing: false, medTotal10: 10000, publicExpense: 'none', age: '69', incomeKey: 'u70-c' },
         expectPts: 1650 * 7 * 4,
         // 3割だと高額療養費（区分ウ）が適用される
-        expectTotalCap: 80100 + (1650 * 7 * 4 * 10 + 10000 - 267000) * 0.01
+        expectTotalCap: 85800 + (1650 * 7 * 4 * 10 + 10000 - 286000) * 0.01
     },
     {
         name: '在がん総4週・若年3割・高額適用後の自己負担',
         p: { applyCancerCare: true, clinicType: 'kinou-kyouka', cancerCareWeeks: 4, hasPrescription: true,
             ratio: 0.3, useNursing: false, medTotal10: 0, publicExpense: 'none', age: '69', incomeKey: 'u70-c' },
         expectPts: 1650 * 7 * 4,
-        expectTotalCap: 80100 + (1650 * 7 * 4 * 10 - 267000) * 0.01
+        expectTotalCap: 85800 + (1650 * 7 * 4 * 10 - 286000) * 0.01
     },
     {
-        name: '在がん総4週・後期高齢1割（個人上限18000）',
+        name: '在がん総4週・後期高齢1割（個人上限22000）',
         p: { applyCancerCare: true, clinicType: 'kinou-kyouka', cancerCareWeeks: 4, hasPrescription: true,
             ratio: 0.1, useNursing: false, medTotal10: 0, publicExpense: 'none', age: '75', incomeKey: 'o70-general' },
         expectPts: 1650 * 7 * 4,
-        expectTotalCap: 18000
+        expectTotalCap: 22000
     },
     {
-        name: '後期高齢1割・一般所得・高額適用',
+        name: '後期高齢1割・一般所得・高額適用（外来上限22000）',
         p: { location: 'home', clinicType: 'kinou-kyouka', visitFreq: 2, patientStatus: 'no', clinicMeets20: true,
             homeGuidance: 'oxygen', hasPrescription: true, emergencyVisits: 0, ratio: 0.1, useNursing: true,
-            nursingRatio: 0.1, medTotal10: 100000, publicExpense: 'none', age: '75', incomeKey: 'o70-general' },
-        expectTotalCap: 18000 + 596
+            nursingRatio: 0.1, medTotal10: 150000, publicExpense: 'none', age: '75', incomeKey: 'o70-general' },
+        expectTotalCap: 22000 + 596
     },
     {
         name: '指定難病2割・上限10000',
@@ -854,14 +887,14 @@ const tests = [
         p: { location: 'home', clinicType: 'kinou-kyouka', visitFreq: 2, patientStatus: 'no', clinicMeets20: true,
             homeGuidance: 'oxygen', hasPrescription: true, emergencyVisits: 0, ratio: 0.3, useNursing: false,
             medTotal10: 500000, publicExpense: 'none', age: '69', incomeKey: 'u70-c' },
-        expectTotalCap: 80100 + (83250 + 500000 - 267000) * 0.01
+        expectTotalCap: 85800 + (83250 + 500000 - 286000) * 0.01
     },
     {
-        name: '高額療養費・70歳未満区分オ',
+        name: '高額療養費・70歳未満区分オ（2026改定）',
         p: { location: 'home', clinicType: 'kinou-kyouka', visitFreq: 2, patientStatus: 'no', clinicMeets20: true,
             homeGuidance: 'oxygen', hasPrescription: true, emergencyVisits: 0, ratio: 0.3, useNursing: false,
             medTotal10: 200000, publicExpense: 'none', age: '69', incomeKey: 'u70-e' },
-        expectTotalCap: 35400
+        expectTotalCap: 36900
     },
     {
         name: '高額療養費・後期高齢低所得Ⅰ',
@@ -882,7 +915,7 @@ const tests = [
         p: { location: 'home', clinicType: 'kinou-kyouka', visitFreq: 2, patientStatus: 'no', clinicMeets20: true,
             homeGuidance: 'oxygen', hasPrescription: true, emergencyVisits: 0, ratio: 0.1, useNursing: false,
             medTotal10: 1000000, publicExpense: 'none', age: '75', incomeKey: 'o70-active1' },
-        expectTotalCap: 80100 + Math.max(0, 83250 + 1000000 - 267000) * 0.01
+        expectTotalCap: 85800 + Math.max(0, 83250 + 1000000 - 286000) * 0.01
     },
     {
         name: '指定難病・上限2500',
@@ -936,7 +969,7 @@ const tests = [
             homeGuidance: 'oxygen', hasPrescription: true, emergencyVisits: 0, ratio: 0.1, useNursing: false,
             medTotal10: 100000, publicExpense: 'none', age: '75', incomeKey: 'o70-general',
             useHouseholdHighCost: true, householdOtherCopay: 50000 },
-        expectTotal: 7600
+        expectTotal: 11500
     }
 ];
 

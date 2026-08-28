@@ -332,6 +332,46 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
+    // 令和8年8月診療分～の高額療養費自己負担限度額（2026年制度改正）
+    // 月額上限の引き上げ・段階制の基準額変更。多数回該当は据え置き（本ツールでは未入力）。
+    // 年間上限（8月〜翌7月）は月次シミュレーションでは還付計算せず、説明のみ表示。
+    const HIGH_COST_LIMITS_2026 = {
+        tierA: { base: 270300, threshold: 901000 },
+        tierB: { base: 179100, threshold: 597000 },
+        tierC: { base: 85800, threshold: 286000 },
+        tierD: 61500,
+        tierE: 36900,
+        seniorOutpatient: {
+            'o70-general': 22000,
+            'o70-low2': 11000,
+            'o70-low1': 8000
+        },
+        seniorHousehold: {
+            'o70-low2': 25700,
+            'o70-low1': 15700
+        },
+        annualCap: {
+            'o70-active3': 1680000, 'u70-a': 1680000,
+            'o70-active2': 1110000, 'u70-b': 1110000,
+            'o70-active1': 530000, 'u70-c': 530000,
+            'o70-general': 530000, 'u70-d': 530000,
+            'o70-low2': 290000, 'u70-e': 290000,
+            'o70-low1': 180000
+        },
+        annualOutpatientCap: {
+            'o70-general': 216000,
+            'o70-low2': 96000
+        }
+    };
+
+    function tieredHighCostLimit(tier, combinedMedicalTotal10) {
+        return tier.base + Math.max(0, combinedMedicalTotal10 - tier.threshold) * 0.01;
+    }
+
+    function getAnnualHighCostCap(incomeKey) {
+        return HIGH_COST_LIMITS_2026.annualCap[incomeKey] ?? null;
+    }
+
     function getHighCostLimit(age, incomeKey, combinedMedicalTotal10) {
         const isSenior = age === '75' || age === '70';
         if (isSenior) {
@@ -340,8 +380,8 @@ document.addEventListener('DOMContentLoaded', () => {
             if (incomeKey === 'o70-active3' || incomeKey === 'o70-active2' || incomeKey === 'o70-active1') {
                 return getHouseholdHighCostLimit(incomeKey, combinedMedicalTotal10);
             }
-            if (incomeKey === 'o70-general') return 18000;
-            if (incomeKey === 'o70-low2' || incomeKey === 'o70-low1') return 8000;
+            const outpatient = HIGH_COST_LIMITS_2026.seniorOutpatient[incomeKey];
+            if (outpatient != null) return outpatient;
         } else {
             return getHouseholdHighCostLimit(incomeKey, combinedMedicalTotal10);
         }
@@ -349,19 +389,20 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function getHouseholdHighCostLimit(incomeKey, combinedMedicalTotal10) {
+        const L = HIGH_COST_LIMITS_2026;
         if (incomeKey === 'o70-active3' || incomeKey === 'u70-a') {
-            return 252600 + Math.max(0, combinedMedicalTotal10 - 842000) * 0.01;
+            return tieredHighCostLimit(L.tierA, combinedMedicalTotal10);
         }
         if (incomeKey === 'o70-active2' || incomeKey === 'u70-b') {
-            return 167400 + Math.max(0, combinedMedicalTotal10 - 558000) * 0.01;
+            return tieredHighCostLimit(L.tierB, combinedMedicalTotal10);
         }
         if (incomeKey === 'o70-active1' || incomeKey === 'u70-c') {
-            return 80100 + Math.max(0, combinedMedicalTotal10 - 267000) * 0.01;
+            return tieredHighCostLimit(L.tierC, combinedMedicalTotal10);
         }
-        if (incomeKey === 'o70-general' || incomeKey === 'u70-d') return 57600;
-        if (incomeKey === 'o70-low2') return 24600;
-        if (incomeKey === 'o70-low1') return 15000;
-        if (incomeKey === 'u70-e') return 35400;
+        if (incomeKey === 'o70-general' || incomeKey === 'u70-d') return L.tierD;
+        if (incomeKey === 'o70-low2') return L.seniorHousehold['o70-low2'];
+        if (incomeKey === 'o70-low1') return L.seniorHousehold['o70-low1'];
+        if (incomeKey === 'u70-e') return L.tierE;
         return Infinity;
     }
 
@@ -1217,10 +1258,19 @@ document.addEventListener('DOMContentLoaded', () => {
             if (householdHighCostEnable?.checked && householdOtherCopay > 0) {
                 items.push('<strong>高額療養費（70歳以上・世帯上限）</strong>: 同一世帯の他の方の医療費を含め、世帯上限を適用しています。個人上限との併用です。');
             } else {
-                items.push('<strong>高額療養費（70歳以上）</strong>: 医療保険＋お薬代の「外来（個人）」上限を適用しています。同一世帯に他の医療費がある場合は「世帯上限」も確認してください。');
+                items.push('<strong>高額療養費（70歳以上）</strong>: 医療保険＋お薬代の「外来（個人）」上限を適用しています（令和8年8月改定）。同一世帯に他の医療費がある場合は「世帯上限」も確認してください。');
             }
         } else {
-            items.push('<strong>高額療養費（70歳未満）</strong>: 医療保険＋お薬代が所得区分の世帯上限の対象。介護保険は別制度です。');
+            items.push('<strong>高額療養費（70歳未満）</strong>: 医療保険＋お薬代が所得区分の世帯上限の対象（令和8年8月改定）。介護保険は別制度です。');
+        }
+
+        if (publicExpense === 'none') {
+            const annualCap = getAnnualHighCostCap(incomeKey);
+            if (annualCap != null) {
+                const annualOut = HIGH_COST_LIMITS_2026.annualOutpatientCap[incomeKey];
+                const outNote = annualOut ? `（外来特例の年間上限は約${annualOut.toLocaleString()}円）` : '';
+                items.push(`<strong>年間上限（参考）</strong>: 令和8年8月から、8月〜翌7月の自己負担に年間上限が設けられました。おおむね<strong>${annualCap.toLocaleString()}円</strong>です${outNote}。月ごとに上限に届かなくても通院が続くと還付の対象になることがあります（保険者が期間終了後に計算・償還）。`);
+            }
         }
 
         if (useNursing) {

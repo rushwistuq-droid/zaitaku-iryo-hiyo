@@ -11,10 +11,11 @@ Claude Code セッション開始時に、以下を順に確認してくださ�
 - [ ] リポジトリを clone した（または既存ワークスペースを開いた）
 - [ ] `main` ブランチが最新である（`git pull origin main`）
 - [ ] Node.js 20 以上が使える（`node -v`）
-- [ ] `node verify-calculations.js` が **51 passed, 0 failed**
+- [ ] `node verify-calculations.js` が **55 passed, 0 failed**
 - [ ] `CLAUDE.md`（ルート）を読んだ
-- [ ] 公開サイトが表示できる: https://rushwistuq-droid.github.io/zaitaku-iryo-hiyo/
-- [ ] 本書（`docs/HANDOVER.md`）と `docs/NOTE_SALES_GUIDE.md` の存在を把握した
+- [ ] 有料note公開URLが表示できる: https://zaitaku-hiyo.netlify.app/
+- [ ] 開発用 Pages: https://rushwistuq-droid.github.io/zaitaku-iryo-hiyo/
+- [ ] 本書（`docs/HANDOVER.md`）と `docs/NOTE_SALES_GUIDE.md` / `docs/NETLIFY_UPDATE.md` の存在を把握した
 
 ---
 
@@ -24,7 +25,8 @@ Claude Code セッション開始時に、以下を順に確認してくださ�
 |------|-----|
 | GitHub | `rushwistuq-droid/zaitaku-iryo-hiyo` |
 | 本番ブランチ | `main` |
-| 公開URL | https://rushwistuq-droid.github.io/zaitaku-iryo-hiyo/ |
+| 公開URL（有料note） | https://zaitaku-hiyo.netlify.app/ |
+| 開発用 Pages | https://rushwistuq-droid.github.io/zaitaku-iryo-hiyo/ |
 | ライセンス | 明示なし（オーナー確認要） |
 | パッケージ管理 | **なし**（package.json なし） |
 

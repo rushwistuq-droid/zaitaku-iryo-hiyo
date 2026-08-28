@@ -21,6 +21,8 @@
 
 `NOTE_ARTICLE.md` のケースD・FAQはこの内容に合わせて更新済みです。公開中のnote本文を開き、該当箇所をコピーし直してください。
 
+あわせて **Netlify 上のツール本体も再アップロード**してください（現状の https://zaitaku-hiyo.netlify.app/ は旧計算のままです）。手順は `docs/NETLIFY_UPDATE.md`。配布用フォルダはリポジトリの `netlify-drop/` です。
+
 ---
 
 ## 商品概要（note冒頭に掲載）
@@ -31,8 +33,9 @@
 - 訪問診療料・在医総管／施医総管・加算・公費・高額療養費を反映
 - スマホ・PCブラウザですぐ利用可能（インストール不要）
 
-**公開URL:** https://rushwistuq-droid.github.io/zaitaku-iryo-hiyo/  
-（アクセスコード付きの限定公開URLを使っている場合は、そちらのURLを記事に記載）
+**公開URL（有料note・購入者向け）:** https://zaitaku-hiyo.netlify.app/  
+（アクセスコード付き。更新手順は `docs/NETLIFY_UPDATE.md`）  
+参考・開発用 GitHub Pages: https://rushwistuq-droid.github.io/zaitaku-iryo-hiyo/
 
 ---
 

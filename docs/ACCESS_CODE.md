@@ -73,6 +73,24 @@ const ACCESS_CODE_HASH = '（ここを新しいハッシュに）';
 
 ゲートは「`#access-gate` 要素が無ければ `app.js` の照合処理が自動でスキップされる」設計なので、**院内用は `index.html` からロック画面ブロックを外すだけ**で作れます（`app.js`・`styles.css` 等は共通のまま）。
 
+### ダウンロード（推奨）
+
+リポジトリの **`netlify-packages/zaitaku-hiyo-innai-netlify-drop.zip`** をダウンロードし、解凍して Netlify にドロップしてください。  
+（GitHub 上で zip を開き **Download**、またはフォルダ `netlify-drop-internal/` の中身5ファイルをそのまま使っても構いません。）
+
+- 書き出した5ファイルを、**販売用とは別の中立URL**（例 `zaitaku-innai.netlify.app`）にアップロードして院内に共有します。
+- 院内用URLは note には載せず、院内だけで共有してください。
+- `app.js` は共通なので、計算ロジックを更新したら**両系統とも再アップロード**してください。
+
+### 手動で作り直す場合
+
+```bash
+# 有料note用・院内用のフォルダと zip をまとめて生成
+node scripts/build-netlify-packages.js
+```
+
+従来のワンライナーでも院内用フォルダだけ作れます。
+
 ```bash
 # リポジトリ直下で実行。scratchpad等に院内用一式を書き出す
 node -e '
@@ -86,10 +104,6 @@ fs.writeFileSync(out+"/index.html", h.slice(0,s)+h.slice(a));
 console.log("done:", out);
 '
 ```
-
-- 書き出した5ファイルを、**販売用とは別の中立URL**（例 `zaitaku-innai.netlify.app`）にアップロードして院内に共有します。
-- 院内用URLは note には載せず、院内だけで共有してください。
-- `app.js` は共通なので、計算ロジックを更新したら**両系統とも再アップロード**してください。
 
 ## 更新履歴
 

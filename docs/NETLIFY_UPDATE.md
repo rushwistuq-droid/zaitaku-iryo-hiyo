@@ -59,3 +59,21 @@ manifest.webmanifest
 - `docs/URL_MIGRATION.md` … 初回の Netlify 移設手順（案B）
 - `docs/ACCESS_CODE.md` … コード変更・院内用ゲート無しビルド
 - `docs/NOTE_SALES_GUIDE.md` … 公開済みnote本文の金額差し替え表
+
+---
+
+## 院内用（アクセスコードなし）
+
+院内スタッフ向けは **別の Netlify サイト**（例 `zaitaku-innai.netlify.app`）に、ゲートなし版をアップロードします。
+
+### ダウンロード
+
+| 用途 | zip |
+|------|-----|
+| 有料note向け | `netlify-packages/zaitaku-hiyo-note-netlify-drop.zip` |
+| **院内用** | **`netlify-packages/zaitaku-hiyo-innai-netlify-drop.zip`** |
+
+GitHub 上で zip を開き **Download** → 解凍 → Netlify の院内用サイトにドロップ。  
+フォルダ `netlify-drop-internal/` の中身5ファイルでも同じです。
+
+詳細: `docs/ACCESS_CODE.md` の「院内用（ゲート無し）ビルド」

@@ -75,10 +75,15 @@ const ACCESS_CODE_HASH = '（ここを新しいハッシュに）';
 
 ### ダウンロード（推奨）
 
-リポジトリの **`netlify-packages/zaitaku-hiyo-innai-netlify-drop.zip`** をダウンロードし、解凍して Netlify にドロップしてください。  
-（GitHub 上で zip を開き **Download**、またはフォルダ `netlify-drop-internal/` の中身5ファイルをそのまま使っても構いません。）
+**有料note向け（アクセスコードあり）**  
+https://github.com/rushwistuq-droid/zaitaku-iryo-hiyo/raw/main/netlify-packages/zaitaku-hiyo-note-netlify-drop.zip  
+→ サイト `zaitaku-hiyo`（https://zaitaku-hiyo.netlify.app/）にドロップ。手順は `docs/NETLIFY_UPDATE.md`。
 
-- 書き出した5ファイルを、**販売用とは別の中立URL**（例 `zaitaku-innai.netlify.app`）にアップロードして院内に共有します。
+**院内用（ゲートなし）**  
+https://github.com/rushwistuq-droid/zaitaku-iryo-hiyo/raw/main/netlify-packages/zaitaku-hiyo-innai-netlify-drop.zip  
+→ **販売用とは別の中立URL**（例 `zaitaku-innai.netlify.app`）にアップロードして院内に共有します。
+
+（GitHub 上で zip を開き **Download**、またはフォルダ `netlify-drop/` / `netlify-drop-internal/` の中身5ファイルでも構いません。）
 - 院内用URLは note には載せず、院内だけで共有してください。
 - `app.js` は共通なので、計算ロジックを更新したら**両系統とも再アップロード**してください。
 

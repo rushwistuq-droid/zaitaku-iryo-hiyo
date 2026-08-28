@@ -14,7 +14,7 @@
 
 - **フレームワークなし** — 素の HTML / CSS / JavaScript（ビルド・npm・バンドラ不要）
 - **Node.js** — `verify-calculations.js` の検証テストのみ（v20推奨）
-- **デプロイ** — 購入者向けは Netlify Drop（`netlify-drop/` の5ファイル）。GitHub Pages は `main` push で自動（開発・参照用）
+- **デプロイ** — 購入者向けは Netlify Drop（`netlify-drop/` または `netlify-packages/zaitaku-hiyo-note-netlify-drop.zip`）。院内用は `netlify-drop-internal/` または `netlify-packages/zaitaku-hiyo-innai-netlify-drop.zip`。再生成は `node scripts/build-netlify-packages.js`。GitHub Pages は `main` push で自動（開発・参照用）
 
 ## 必須ルール
 

@@ -102,6 +102,27 @@ const FEE_2026 = {
         section2: { withRx: 1495, withoutRx: 1687 }
     },
     nursingGuide: { home: 298, facility: 286 },
+    visitNursing: {
+        weeksPerMonth: 4,
+        kaigoTreatmentImprovementRate: 0.018,
+        kaigo: {
+            under20: 314,
+            under30: 471,
+            under60: 823,
+            under90: 1128
+        },
+        iryo: {
+            type1: { weekday1to3: 5550, weekday4plus: 6550 },
+            type2: {
+                tier2: { weekday1to3: 5550, weekday4plus: 6550 },
+                tier3_9: { weekday1to3: 2780, weekday4plus: 3280 },
+                tier10_19: { day1to20: 2760, day21plus: 2660 },
+                tier20_49: { day1to20: 2710, day21plus: 2610 },
+                tier50plus: { day1to20: 2610, day21plus: 2510 }
+            },
+            palliative: 12850
+        }
+    },
     houkatsuAddon: 150,
     section3ManageRatio: 0.8,
     addons: {
@@ -261,10 +282,62 @@ function getNanbyouMonthlyCap(limitKey, ventilator, longTerm) {
     return longTerm ? tier.longTerm : tier.normal;
 }
 
+function getVisitNursingMonthlyVisits(weeklyFreq) {
+    return Math.max(0, weeklyFreq) * (FEE_2026.visitNursing.weeksPerMonth || 4);
+}
+
+function calcKaigoVisitNursingYen10(weeklyFreq, durationKey) {
+    const monthlyVisits = getVisitNursingMonthlyVisits(weeklyFreq);
+    if (monthlyVisits <= 0) return 0;
+    const units = FEE_2026.visitNursing.kaigo[durationKey] || FEE_2026.visitNursing.kaigo.under30;
+    const yen10 = units * 10 * monthlyVisits;
+    return yen10 * (1 + FEE_2026.visitNursing.kaigoTreatmentImprovementRate);
+}
+
+function calcKaigoVisitNursingCopay(weeklyFreq, nursingRatio, durationKey) {
+    return Math.round(calcKaigoVisitNursingYen10(weeklyFreq, durationKey) * nursingRatio);
+}
+
+function calcMedicalVisitNursingWeeklyYen(weeklyFreq, rates) {
+    const freq = Math.max(0, weeklyFreq);
+    return Math.min(3, freq) * rates.weekday1to3 + Math.max(0, freq - 3) * rates.weekday4plus;
+}
+
+function calcMedicalVisitNursing10(weeklyFreq, location, buildingPatientTier, palliative) {
+    if (weeklyFreq <= 0) return 0;
+    const weeks = FEE_2026.visitNursing.weeksPerMonth || 4;
+    const VN = FEE_2026.visitNursing.iryo;
+    if (palliative) return VN.palliative * weeklyFreq * weeks;
+
+    const monthlyVisits = weeklyFreq * weeks;
+    const tier = buildingPatientTier || 'tier1';
+
+    if (location === 'home' && tier === 'tier1') {
+        return calcMedicalVisitNursingWeeklyYen(weeklyFreq, VN.type1) * weeks;
+    }
+
+    const t2 = VN.type2;
+    if (tier === 'tier1' || tier === 'tier2_9') {
+        const rates = tier === 'tier1' ? t2.tier2 : t2.tier3_9;
+        return calcMedicalVisitNursingWeeklyYen(weeklyFreq, rates) * weeks;
+    }
+
+    const rateMap = {
+        tier10_19: t2.tier10_19,
+        tier20_49: t2.tier20_49,
+        tier50plus: t2.tier50plus
+    };
+    const dayRates = rateMap[tier] || t2.tier10_19;
+    const first20 = Math.min(20, monthlyVisits);
+    const after20 = Math.max(0, monthlyVisits - 20);
+    return first20 * dayRates.day1to20 + after20 * dayRates.day21plus;
+}
+
 function applyPublicExpenseCore(params) {
     const {
         publicExpense, medicalTotal10, medTotal10, medicalRatio, nursingRatio,
-        nursingUnits, rawMedicalCopay, rawMedCopay, rawNursingCopay,
+        guidanceUnits, rawMedicalCopay, rawMedCopay,
+        rawGuidanceCopay, rawVisitNursingKaigoCopay,
         age, incomeKey, visitFreq, emergencyVisits, hasDisabilityCert, disabilityGrade,
         nanbyouLimit, nanbyouVentilator, nanbyouLongTerm,
         jiritsuLimit, jiritsuCoveragePct,
@@ -274,10 +347,12 @@ function applyPublicExpenseCore(params) {
 
     let medical = rawMedicalCopay;
     let medication = rawMedCopay;
-    let nursing = rawNursingCopay;
+    let guidance = rawGuidanceCopay;
+    let visitNursingKaigo = rawVisitNursingKaigoCopay;
+    let nursing = guidance + visitNursingKaigo;
 
     if (publicExpense === 'welfare') {
-        return { medical: 0, medication: 0, nursing: 0 };
+        return { medical: 0, medication: 0, guidance: 0, visitNursingKaigo: 0, nursing: 0 };
     }
 
     if (publicExpense === 'nanbyou') {
@@ -285,12 +360,16 @@ function applyPublicExpenseCore(params) {
         const nbNursingRatio = Math.min(0.2, nursingRatio);
         medical = Math.round(medicalTotal10 * nbRatio);
         medication = Math.round(medTotal10 * nbRatio);
-        nursing = Math.round(nursingUnits * 10 * nbNursingRatio);
+        guidance = Math.round(guidanceUnits * 10 * nbNursingRatio);
+        visitNursingKaigo = nursingRatio > 0
+            ? Math.round(rawVisitNursingKaigoCopay * (nbNursingRatio / nursingRatio))
+            : 0;
         const cap = getNanbyouMonthlyCap(
             nanbyouLimit ?? '10000', !!nanbyouVentilator, !!nanbyouLongTerm
         );
-        const c = applyMonthlyCap(medical, medication, nursing, cap);
-        return { medical: c.medical, medication: c.medication, nursing: c.nursing };
+        const c = applyMonthlyCap(medical, medication, guidance, cap);
+        nursing = c.nursing + visitNursingKaigo;
+        return { medical: c.medical, medication: c.medication, guidance: c.nursing, visitNursingKaigo, nursing };
     }
 
     if (publicExpense === 'jiritsu') {
@@ -314,7 +393,7 @@ function applyPublicExpenseCore(params) {
         return {
             medical: jMedical + uMedical,
             medication: jMedication + uMedication,
-            nursing
+            guidance, visitNursingKaigo, nursing
         };
     }
 
@@ -324,17 +403,19 @@ function applyPublicExpenseCore(params) {
         if (subsidyType === 'zero') {
             return {
                 medical: 0, medication: 0,
+                guidance: coverNursing ? 0 : guidance,
+                visitNursingKaigo: coverNursing ? 0 : visitNursingKaigo,
                 nursing: coverNursing ? 0 : nursing
             };
         }
         if (subsidyType === 'fixed-500') {
             const cap = (visitFreq + (emergencyVisits || 0)) * 500;
             const c = applyMonthlyCap(medical, medication, 0, cap);
-            return { medical: c.medical, medication: c.medication, nursing };
+            return { medical: c.medical, medication: c.medication, guidance, visitNursingKaigo, nursing };
         }
         if (subsidyType === 'fixed-1000') {
             const c = applyMonthlyCap(medical, medication, 0, 1000);
-            return { medical: c.medical, medication: c.medication, nursing };
+            return { medical: c.medical, medication: c.medication, guidance, visitNursingKaigo, nursing };
         }
         if (subsidyType.startsWith('ratio-cap-')) {
             const cap = parseInt(subsidyType.replace('ratio-cap-', ''), 10);
@@ -345,9 +426,9 @@ function applyPublicExpenseCore(params) {
                 0,
                 cap
             );
-            return { medical: c.medical, medication: c.medication, nursing };
+            return { medical: c.medical, medication: c.medication, guidance, visitNursingKaigo, nursing };
         }
-        return { medical, medication, nursing };
+        return { medical, medication, guidance, visitNursingKaigo, nursing };
     }
 
     const combinedMedicalTotal10 = medicalTotal10 + medTotal10;
@@ -395,7 +476,7 @@ function applyPublicExpenseCore(params) {
         }
     }
 
-    return { medical, medication, nursing };
+    return { medical, medication, guidance, visitNursingKaigo, nursing };
 }
 
 function getCancerCareRates(section, kinouBedType) {
@@ -513,25 +594,46 @@ function calcTotal(p) {
     const med10 = pts * 10;
     const medDrug10 = p.medTotal10 || 0;
     const ratio = p.ratio;
-    const rawMed = Math.round(med10 * ratio);
+    const nursingRatio = p.nursingRatio || 0.1;
+
+    let visitNursingMedical10 = 0;
+    if (!p.applyCancerCare && p.visitNursingType === 'iryo' && (p.visitNursingWeeklyFreq || 0) > 0) {
+        visitNursingMedical10 = calcMedicalVisitNursing10(
+            p.visitNursingWeeklyFreq,
+            p.location || 'home',
+            p.buildingPatientTier,
+            !!p.visitNursingPalliative
+        );
+    }
+
+    const rawMed = Math.round((med10 + visitNursingMedical10) * ratio);
     const rawDrug = Math.round(medDrug10 * ratio);
-    let nursingUnits = 0;
-    let rawNursing = 0;
+    let guidanceUnits = 0;
+    let rawGuidance = 0;
+    let rawVisitNursingKaigo = 0;
     if (p.useNursing) {
-        nursingUnits = (p.location === 'home' ? 298 : 286) * Math.min(2, p.visitFreq);
-        rawNursing = Math.round(nursingUnits * 10 * (p.nursingRatio || 0.1));
+        guidanceUnits = (p.location === 'home' ? 298 : 286) * Math.min(2, p.visitFreq);
+        rawGuidance = Math.round(guidanceUnits * 10 * nursingRatio);
+    }
+    if (!p.applyCancerCare && p.visitNursingType === 'kaigo' && (p.visitNursingWeeklyFreq || 0) > 0) {
+        rawVisitNursingKaigo = calcKaigoVisitNursingCopay(
+            p.visitNursingWeeklyFreq,
+            nursingRatio,
+            p.visitNursingDuration || 'under30'
+        );
     }
 
     const pe = applyPublicExpenseCore({
         publicExpense: p.publicExpense || 'none',
-        medicalTotal10: med10,
+        medicalTotal10: med10 + visitNursingMedical10,
         medTotal10: medDrug10,
         medicalRatio: ratio,
-        nursingRatio: p.nursingRatio || 0.1,
-        nursingUnits,
+        nursingRatio,
+        guidanceUnits,
         rawMedicalCopay: rawMed,
         rawMedCopay: rawDrug,
-        rawNursingCopay: rawNursing,
+        rawGuidanceCopay: rawGuidance,
+        rawVisitNursingKaigoCopay: rawVisitNursingKaigo,
         age: p.age,
         incomeKey: p.incomeKey,
         visitFreq: p.visitFreq,
@@ -555,7 +657,10 @@ function calcTotal(p) {
         total: pe.medical + pe.medication + pe.nursing,
         medical: pe.medical,
         medication: pe.medication,
-        nursing: pe.nursing
+        nursing: pe.nursing,
+        guidance: pe.guidance,
+        visitNursingKaigo: pe.visitNursingKaigo,
+        visitNursingMedical10
     };
 }
 
@@ -970,6 +1075,39 @@ const tests = [
             medTotal10: 100000, publicExpense: 'none', age: '75', incomeKey: 'o70-general',
             useHouseholdHighCost: true, householdOtherCopay: 50000 },
         expectTotal: 11500
+    },
+    {
+        name: '訪問看護（介護）週3回・30分未満・1割',
+        p: { location: 'home', clinicType: 'kinou-kyouka', visitFreq: 2, patientStatus: 'no', clinicMeets20: true,
+            homeGuidance: 'none', hasPrescription: false, emergencyVisits: 0, ratio: 0.3, useNursing: false,
+            medTotal10: 0, publicExpense: 'none', age: '69', incomeKey: 'u70-c',
+            visitNursingType: 'kaigo', visitNursingWeeklyFreq: 3, visitNursingDuration: 'under30', nursingRatio: 0.1 },
+        expectVisitNursingKaigo: 5754
+    },
+    {
+        name: '訪問看護（医療）週3回・戸建・1割',
+        p: { location: 'home', clinicType: 'kinou-kyouka', visitFreq: 0, patientStatus: 'no', clinicMeets20: true,
+            homeGuidance: 'none', hasPrescription: false, emergencyVisits: 0, ratio: 0.1, useNursing: false,
+            medTotal10: 0, publicExpense: 'none', age: '75', incomeKey: 'o70-general',
+            visitNursingType: 'iryo', visitNursingWeeklyFreq: 3 },
+        expectVisitNursingMedical10: 66600,
+        expectMedical: 9465
+    },
+    {
+        name: '訪問看護（介護）+居宅管理+指定難病（VNは上限外）',
+        p: { location: 'home', clinicType: 'kinou-kyouka', visitFreq: 2, patientStatus: 'no', clinicMeets20: true,
+            homeGuidance: 'oxygen', hasPrescription: true, emergencyVisits: 0, ratio: 0.3, useNursing: true,
+            nursingRatio: 0.1, medTotal10: 10000, publicExpense: 'nanbyou', nanbyouLimit: '10000', age: '69', incomeKey: 'u70-c',
+            visitNursingType: 'kaigo', visitNursingWeeklyFreq: 3, visitNursingDuration: 'under30' },
+        expectTotal: 10000 + 5754
+    },
+    {
+        name: '在がん総時は訪問看護を算定しない',
+        p: { applyCancerCare: true, clinicType: 'kinou-kyouka', cancerCareWeeks: 4, hasPrescription: true,
+            ratio: 0.1, useNursing: false, medTotal10: 0, publicExpense: 'none', age: '75', incomeKey: 'o70-general',
+            visitNursingType: 'kaigo', visitNursingWeeklyFreq: 3, nursingRatio: 0.1 },
+        expectVisitNursingKaigo: 0,
+        expectTotalCap: 22000
     }
 ];
 
@@ -989,6 +1127,15 @@ tests.forEach(t => {
     }
     if (t.expectNursing !== undefined && r.nursing !== t.expectNursing) {
         ok = false; msg += ` nursing=${r.nursing} expected=${t.expectNursing}`;
+    }
+    if (t.expectVisitNursingKaigo !== undefined && r.visitNursingKaigo !== t.expectVisitNursingKaigo) {
+        ok = false; msg += ` visitNursingKaigo=${r.visitNursingKaigo} expected=${t.expectVisitNursingKaigo}`;
+    }
+    if (t.expectVisitNursingMedical10 !== undefined && r.visitNursingMedical10 !== t.expectVisitNursingMedical10) {
+        ok = false; msg += ` visitNursingMedical10=${r.visitNursingMedical10} expected=${t.expectVisitNursingMedical10}`;
+    }
+    if (t.expectMedical !== undefined && r.medical !== t.expectMedical) {
+        ok = false; msg += ` medical=${r.medical} expected=${t.expectMedical}`;
     }
     if (ok) { passed++; console.log(`✓ ${t.name}`); }
     else { failed++; console.log(`✗ ${t.name}:${msg}`); }

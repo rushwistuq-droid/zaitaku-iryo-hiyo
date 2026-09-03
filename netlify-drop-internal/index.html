@@ -420,6 +420,44 @@
                             </div>
                         </div>
 
+                        <div class="form-group">
+                            <label for="visit-nursing-type">訪問看護ステーションの利用</label>
+                            <select id="visit-nursing-type" class="form-control">
+                                <option value="none" selected>利用しない</option>
+                                <option value="kaigo">介護保険（要介護・要支援認定）</option>
+                                <option value="iryo">医療保険（訪問看護指示書）</option>
+                            </select>
+                            <span class="help-text">※居宅療養管理指導（医師）とは別の、訪問看護ステーションによる訪問看護です。医療保険は介護認定がなくても利用できます。</span>
+                        </div>
+
+                        <p id="visit-nursing-cancer-note" class="help-text" style="display:none">
+                            ※在がん総適用時は訪問看護も包括のため、別途の訪問看護費は発生しません。
+                        </p>
+
+                        <div id="visit-nursing-details" style="display:none">
+                            <div class="form-group">
+                                <label for="visit-nursing-freq">訪問看護の頻度（週あたり）</label>
+                                <div class="range-slider-container">
+                                    <input type="range" id="visit-nursing-freq" min="1" max="7" value="3" class="range-slider">
+                                    <span class="range-value">週<strong id="visit-nursing-freq-val">3</strong>回（月4週で概算）</span>
+                                </div>
+                            </div>
+                            <div class="form-group">
+                                <label for="visit-nursing-duration">訪問時間の目安（介護保険）</label>
+                                <select id="visit-nursing-duration" class="form-control">
+                                    <option value="under20">20分未満（314単位/回）</option>
+                                    <option value="under30" selected>30分未満（471単位/回）★一般的</option>
+                                    <option value="under60">30分〜1時間（823単位/回）</option>
+                                    <option value="under90">1〜1.5時間（1,128単位/回）</option>
+                                </select>
+                                <span class="help-text">※処遇改善加算（1.8%）込みで概算します。</span>
+                            </div>
+                            <label class="checkbox-item inline-check">
+                                <input type="checkbox" id="visit-nursing-iryo-palliative">
+                                <span>医療保険・緩和ケア等の専門研修を受けた看護師（12,850円/回）</span>
+                            </label>
+                        </div>
+
                         <!-- 公費負担医療 -->
                         <div class="form-group">
                             <label for="public-expense">利用している公費負担医療・制度</label>
@@ -495,7 +533,7 @@
                             </div>
                             <label class="checkbox-item inline-check">
                                 <input type="checkbox" id="local-nursing-subsidy">
-                                <span>介護保険（居宅療養管理指導）も助成対象</span>
+                                <span>介護保険（居宅療養管理指導・訪問看護）も助成対象</span>
                             </label>
                             <span class="help-text">※自治体の重度障害者医療費助成等の典型パターンです。お住まいの市区町村の条例と異なる場合があります。</span>
                         </div>
@@ -588,9 +626,13 @@
                                     <td class="indent-2 text-muted">※公費・助成制度による軽減額</td>
                                     <td class="align-right text-success"><span id="table-public-limit-applied">-0</span>円</td>
                                 </tr>
-                                <tr id="row-nursing-detail">
-                                    <td>介護保険自己負担額 (居宅管理)</td>
-                                    <td class="align-right"><span id="table-nursing-copay">0</span>円</td>
+                                <tr id="row-guidance-detail">
+                                    <td>介護保険 (居宅療養管理指導)</td>
+                                    <td class="align-right"><span id="table-guidance-copay">0</span>円</td>
+                                </tr>
+                                <tr id="row-visit-nursing-detail" style="display:none">
+                                    <td><span id="table-visit-nursing-label">訪問看護</span></td>
+                                    <td class="align-right"><span id="table-visit-nursing-copay">0</span>円</td>
                                 </tr>
                                 <tr>
                                     <td>お薬代 (自己負担額)</td>
@@ -810,8 +852,18 @@
                         </tr>
                         <tr>
                             <td>介護保険適用分</td>
-                            <td>居宅療養管理指導費 (医師による管理・指導)</td>
+                            <td id="print-detail-nursing-desc">居宅療養管理指導・訪問看護（介護）</td>
                             <td class="align-right"><span id="print-detail-nursing-val">0</span> 円</td>
+                        </tr>
+                        <tr>
+                            <td class="indent-1">↳ 居宅療養管理指導</td>
+                            <td>医師による管理・指導（月最大2回）</td>
+                            <td class="align-right"><span id="print-detail-guidance-val">0</span> 円</td>
+                        </tr>
+                        <tr>
+                            <td class="indent-1">↳ 訪問看護</td>
+                            <td id="print-detail-visit-nursing-desc">—</td>
+                            <td class="align-right"><span id="print-detail-visit-nursing-val">0</span> 円</td>
                         </tr>
                         <tr>
                             <td>お薬代 (自己負担)</td>

@@ -73,6 +73,13 @@ document.addEventListener('DOMContentLoaded', () => {
     const nursingInsuranceSelect = document.getElementById('nursing-insurance');
     const nursingInsuranceDetails = document.getElementById('nursing-insurance-details');
     const nursingRatioSelect = document.getElementById('nursing-ratio');
+    const visitNursingTypeSelect = document.getElementById('visit-nursing-type');
+    const visitNursingDetails = document.getElementById('visit-nursing-details');
+    const visitNursingFreqSlider = document.getElementById('visit-nursing-freq');
+    const visitNursingFreqVal = document.getElementById('visit-nursing-freq-val');
+    const visitNursingDurationSelect = document.getElementById('visit-nursing-duration');
+    const visitNursingIryoPalliativeCheck = document.getElementById('visit-nursing-iryo-palliative');
+    const visitNursingCancerNote = document.getElementById('visit-nursing-cancer-note');
     const publicExpenseSelect = document.getElementById('public-expense');
 
     const publicNanbyouDetails = document.getElementById('public-nanbyou-details');
@@ -99,8 +106,11 @@ document.addEventListener('DOMContentLoaded', () => {
     const tableMedicalLimitApplied = document.getElementById('table-medical-limit-applied');
     const rowPublicApplied = document.getElementById('row-public-applied');
     const tablePublicLimitApplied = document.getElementById('table-public-limit-applied');
-    const rowNursingDetail = document.getElementById('row-nursing-detail');
-    const tableNursingCopay = document.getElementById('table-nursing-copay');
+    const rowGuidanceDetail = document.getElementById('row-guidance-detail');
+    const tableGuidanceCopay = document.getElementById('table-guidance-copay');
+    const rowVisitNursingDetail = document.getElementById('row-visit-nursing-detail');
+    const tableVisitNursingCopay = document.getElementById('table-visit-nursing-copay');
+    const tableVisitNursingLabel = document.getElementById('table-visit-nursing-label');
     const tableMedicationCopay = document.getElementById('table-medication-copay');
     const tableMedicalRatioLabel = document.getElementById('table-medical-ratio-label');
     const tableGuidanceNote = document.getElementById('table-guidance-note');
@@ -247,6 +257,28 @@ document.addEventListener('DOMContentLoaded', () => {
             section2: { withRx: 1495, withoutRx: 1687 }
         },
         nursingGuide: { home: 298, facility: 286 },
+        // 訪問看護ステーション（令和8年6月改定）
+        visitNursing: {
+            weeksPerMonth: 4,
+            kaigoTreatmentImprovementRate: 0.018,
+            kaigo: {
+                under20: 314,
+                under30: 471,
+                under60: 823,
+                under90: 1128
+            },
+            iryo: {
+                type1: { weekday1to3: 5550, weekday4plus: 6550 },
+                type2: {
+                    tier2: { weekday1to3: 5550, weekday4plus: 6550 },
+                    tier3_9: { weekday1to3: 2780, weekday4plus: 3280 },
+                    tier10_19: { day1to20: 2760, day21plus: 2660 },
+                    tier20_49: { day1to20: 2710, day21plus: 2610 },
+                    tier50plus: { day1to20: 2610, day21plus: 2510 }
+                },
+                palliative: 12850
+            }
+        },
         houkatsuAddon: 150,
         section3ManageRatio: 0.8,
         addons: {
@@ -720,10 +752,85 @@ document.addEventListener('DOMContentLoaded', () => {
         return longTerm ? tier.longTerm : tier.normal;
     }
 
+    function getNanbyouMonthlyCap(limitKey, ventilator, longTerm) {
+        if (ventilator) return 1000;
+        const tier = NANBYOU_CAP_BY_TIER[String(limitKey)] || NANBYOU_CAP_BY_TIER['10000'];
+        return longTerm ? tier.longTerm : tier.normal;
+    }
+
+    function getVisitNursingMonthlyVisits(weeklyFreq) {
+        return Math.max(0, weeklyFreq) * (FEE_2026.visitNursing.weeksPerMonth || 4);
+    }
+
+    function calcKaigoVisitNursingYen10(weeklyFreq, durationKey) {
+        const monthlyVisits = getVisitNursingMonthlyVisits(weeklyFreq);
+        if (monthlyVisits <= 0) return 0;
+        const units = FEE_2026.visitNursing.kaigo[durationKey] || FEE_2026.visitNursing.kaigo.under30;
+        const yen10 = units * 10 * monthlyVisits;
+        return yen10 * (1 + FEE_2026.visitNursing.kaigoTreatmentImprovementRate);
+    }
+
+    function calcKaigoVisitNursingCopay(weeklyFreq, nursingRatio, durationKey) {
+        return Math.round(calcKaigoVisitNursingYen10(weeklyFreq, durationKey) * nursingRatio);
+    }
+
+    function calcMedicalVisitNursingWeeklyYen(weeklyFreq, rates) {
+        const freq = Math.max(0, weeklyFreq);
+        return Math.min(3, freq) * rates.weekday1to3 + Math.max(0, freq - 3) * rates.weekday4plus;
+    }
+
+    function calcMedicalVisitNursing10(weeklyFreq, location, buildingPatientTier, palliative) {
+        if (weeklyFreq <= 0) return 0;
+        const weeks = FEE_2026.visitNursing.weeksPerMonth || 4;
+        const VN = FEE_2026.visitNursing.iryo;
+        if (palliative) return VN.palliative * weeklyFreq * weeks;
+
+        const monthlyVisits = weeklyFreq * weeks;
+        const tier = buildingPatientTier || 'tier1';
+
+        if (location === 'home' && tier === 'tier1') {
+            return calcMedicalVisitNursingWeeklyYen(weeklyFreq, VN.type1) * weeks;
+        }
+
+        const t2 = VN.type2;
+        if (tier === 'tier1' || tier === 'tier2_9') {
+            const rates = tier === 'tier1' ? t2.tier2 : t2.tier3_9;
+            return calcMedicalVisitNursingWeeklyYen(weeklyFreq, rates) * weeks;
+        }
+
+        const rateMap = {
+            tier10_19: t2.tier10_19,
+            tier20_49: t2.tier20_49,
+            tier50plus: t2.tier50plus
+        };
+        const dayRates = rateMap[tier] || t2.tier10_19;
+        const first20 = Math.min(20, monthlyVisits);
+        const after20 = Math.max(0, monthlyVisits - 20);
+        return first20 * dayRates.day1to20 + after20 * dayRates.day21plus;
+    }
+
+    function getVisitNursingLabel(type, durationKey, weeklyFreq, palliative) {
+        if (type === 'kaigo') {
+            const labels = {
+                under20: '20分未満',
+                under30: '30分未満',
+                under60: '30分〜1時間',
+                under90: '1〜1.5時間'
+            };
+            return `介護・訪問看護費Ⅰ（${labels[durationKey] || '30分未満'}・週${weeklyFreq}回）`;
+        }
+        if (type === 'iryo') {
+            if (palliative) return `医療・緩和等（12,850円/回・週${weeklyFreq}回）`;
+            return `医療・基本療養費（週${weeklyFreq}回）`;
+        }
+        return '';
+    }
+
     function applyPublicExpense(params) {
         const {
             publicExpense, medicalTotal10, medTotal10, medicalRatio, nursingRatio,
-            nursingUnits, rawMedicalCopay, rawMedCopay, rawNursingCopay,
+            guidanceUnits, rawMedicalCopay, rawMedCopay,
+            rawGuidanceCopay, rawVisitNursingKaigoCopay,
             age, incomeKey, visitFreq, emergencyVisits, hasDisabilityCert, disabilityGrade,
             nanbyouLimit, nanbyouVentilator, nanbyouLongTerm,
             jiritsuLimit, jiritsuCoveragePct,
@@ -743,7 +850,9 @@ document.addEventListener('DOMContentLoaded', () => {
 
         let medical = rawMedicalCopay;
         let medication = rawMedCopay;
-        let nursing = rawNursingCopay;
+        let guidance = rawGuidanceCopay;
+        let visitNursingKaigo = rawVisitNursingKaigoCopay;
+        let nursing = guidance + visitNursingKaigo;
         let highCostDeduction = 0;
         let householdHighCostDeduction = 0;
         let publicLimitDeduction = 0;
@@ -752,32 +861,36 @@ document.addEventListener('DOMContentLoaded', () => {
         let isPublicApplied = false;
 
         if (publicExpense === 'welfare') {
-            publicLimitDeduction = medical + medication + nursing;
+            publicLimitDeduction = medical + medication + guidance + visitNursingKaigo;
             return {
-                medical: 0, medication: 0, nursing: 0,
+                medical: 0, medication: 0, guidance: 0, visitNursingKaigo: 0, nursing: 0,
                 highCostDeduction, householdHighCostDeduction, publicLimitDeduction,
                 isHighCostApplied, isHouseholdHighCostApplied, isPublicApplied: true
             };
         }
 
         if (publicExpense === 'nanbyou') {
-            const rawTotalBefore = rawMedicalCopay + rawMedCopay + rawNursingCopay;
+            const rawTotalBefore = rawMedicalCopay + rawMedCopay + rawGuidanceCopay + rawVisitNursingKaigoCopay;
             const nbRatio = Math.min(0.2, medicalRatio);
             const nbNursingRatio = Math.min(0.2, nursingRatio);
             medical = Math.round(medicalTotal10 * nbRatio);
             medication = Math.round(medTotal10 * nbRatio);
-            nursing = Math.round(nursingUnits * 10 * nbNursingRatio);
+            guidance = Math.round(guidanceUnits * 10 * nbNursingRatio);
+            visitNursingKaigo = nursingRatio > 0
+                ? Math.round(rawVisitNursingKaigoCopay * (nbNursingRatio / nursingRatio))
+                : 0;
 
             const cap = getNanbyouMonthlyCap(nbLimitKey, nbVentilator, nbLongTerm);
-            const capped = applyMonthlyCap(medical, medication, nursing, cap);
+            const capped = applyMonthlyCap(medical, medication, guidance, cap);
             medical = capped.medical;
             medication = capped.medication;
-            nursing = capped.nursing;
+            guidance = capped.nursing;
+            nursing = guidance + visitNursingKaigo;
             publicLimitDeduction = rawTotalBefore - (medical + medication + nursing);
             if (publicLimitDeduction > 0) isPublicApplied = true;
 
             return {
-                medical, medication, nursing,
+                medical, medication, guidance, visitNursingKaigo, nursing,
                 highCostDeduction, householdHighCostDeduction, publicLimitDeduction,
                 isHighCostApplied, isHouseholdHighCostApplied, isPublicApplied
             };
@@ -811,7 +924,7 @@ document.addEventListener('DOMContentLoaded', () => {
             if (publicLimitDeduction > 0) isPublicApplied = true;
 
             return {
-                medical, medication, nursing,
+                medical, medication, guidance, visitNursingKaigo, nursing,
                 highCostDeduction, householdHighCostDeduction, publicLimitDeduction,
                 isHighCostApplied, isHouseholdHighCostApplied, isPublicApplied
             };
@@ -819,10 +932,16 @@ document.addEventListener('DOMContentLoaded', () => {
 
         if (publicExpense === 'local-subsidy') {
             if (subsidyType === 'zero') {
-                publicLimitDeduction = medical + medication + (coverNursing ? nursing : 0);
+                publicLimitDeduction = medical + medication + (coverNursing ? (guidance + visitNursingKaigo) : 0);
                 medical = 0;
                 medication = 0;
-                if (coverNursing) nursing = 0;
+                if (coverNursing) {
+                    guidance = 0;
+                    visitNursingKaigo = 0;
+                    nursing = 0;
+                } else {
+                    nursing = guidance + visitNursingKaigo;
+                }
                 isPublicApplied = true;
             } else if (subsidyType === 'fixed-500') {
                 const visits = visitFreq + emergencyVisits;
@@ -858,7 +977,7 @@ document.addEventListener('DOMContentLoaded', () => {
             }
 
             return {
-                medical, medication, nursing,
+                medical, medication, guidance, visitNursingKaigo, nursing,
                 highCostDeduction, householdHighCostDeduction, publicLimitDeduction,
                 isHighCostApplied, isHouseholdHighCostApplied, isPublicApplied
             };
@@ -917,7 +1036,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         return {
-            medical, medication, nursing,
+            medical, medication, guidance, visitNursingKaigo, nursing,
             highCostDeduction, householdHighCostDeduction, publicLimitDeduction,
             isHighCostApplied, isHouseholdHighCostApplied, isPublicApplied
         };
@@ -1022,6 +1141,34 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
+    function toggleNursingDetailsUI() {
+        const useNursing = nursingInsuranceSelect.value === 'yes';
+        const visitType = visitNursingTypeSelect?.value || 'none';
+        const showKaigoRatio = useNursing || visitType === 'kaigo';
+        if (nursingInsuranceDetails) {
+            nursingInsuranceDetails.style.display = showKaigoRatio ? 'block' : 'none';
+        }
+        if (rowGuidanceDetail) rowGuidanceDetail.style.display = useNursing ? 'table-row' : 'none';
+    }
+
+    function toggleVisitNursingUI() {
+        const applyCancer = applyCancerCareSelect.value === 'yes';
+        const type = visitNursingTypeSelect?.value || 'none';
+        const showDetails = !applyCancer && type !== 'none';
+        if (visitNursingDetails) visitNursingDetails.style.display = showDetails ? 'block' : 'none';
+        if (visitNursingCancerNote) visitNursingCancerNote.style.display = applyCancer ? 'block' : 'none';
+        if (visitNursingDurationSelect?.parentElement) {
+            visitNursingDurationSelect.parentElement.style.display = type === 'kaigo' ? 'block' : 'none';
+        }
+        if (visitNursingIryoPalliativeCheck?.parentElement) {
+            visitNursingIryoPalliativeCheck.parentElement.style.display = type === 'iryo' ? 'block' : 'none';
+        }
+        if (visitNursingTypeSelect) visitNursingTypeSelect.disabled = applyCancer;
+        if (visitNursingFreqSlider) visitNursingFreqSlider.disabled = applyCancer;
+        if (visitNursingDurationSelect) visitNursingDurationSelect.disabled = applyCancer;
+        if (visitNursingIryoPalliativeCheck) visitNursingIryoPalliativeCheck.disabled = applyCancer;
+    }
+
     function toggleCancerCareUI() {
         const applyCancer = applyCancerCareSelect.value === 'yes';
         cancerCareDetailsPanel.classList.toggle('hidden', !applyCancer);
@@ -1032,6 +1179,8 @@ document.addEventListener('DOMContentLoaded', () => {
         if (emergencyLateNightSlider) emergencyLateNightSlider.disabled = applyCancer;
         homeGuidanceSelect.disabled = applyCancer;
         toggleAddonPanels();
+        toggleVisitNursingUI();
+        toggleNursingDetailsUI();
     }
 
     function updateCalculations() {
@@ -1074,24 +1223,44 @@ document.addEventListener('DOMContentLoaded', () => {
         });
 
         const medicalTotal10 = totalPoints * 10;
-        const combinedMedicalTotal10 = medicalTotal10 + medTotal10;
+        let visitNursingMedical10 = 0;
+        const visitNursingType = applyCancerCare ? 'none' : (visitNursingTypeSelect?.value || 'none');
+        const visitNursingWeeklyFreq = parseInt(visitNursingFreqSlider?.value || 0, 10);
+        const visitNursingDuration = visitNursingDurationSelect?.value || 'under30';
+        const visitNursingPalliative = !!visitNursingIryoPalliativeCheck?.checked;
 
-        const rawMedicalCopay = Math.round(medicalTotal10 * medicalRatio);
+        if (visitNursingType === 'iryo' && visitNursingWeeklyFreq > 0) {
+            visitNursingMedical10 = calcMedicalVisitNursing10(
+                visitNursingWeeklyFreq, location, buildingPatientTier, visitNursingPalliative
+            );
+        }
+
+        const combinedMedicalTotal10 = medicalTotal10 + medTotal10 + visitNursingMedical10;
+
+        const rawMedicalCopay = Math.round((medicalTotal10 + visitNursingMedical10) * medicalRatio);
         const rawMedCopay = Math.round(medTotal10 * medicalRatio);
-        let rawNursingCopay = 0;
-        let nursingUnits = 0;
+        let rawGuidanceCopay = 0;
+        let rawVisitNursingKaigoCopay = 0;
+        let guidanceUnits = 0;
 
         if (useNursing) {
             const unitPerVisit = location === 'home'
                 ? FEE_2026.nursingGuide.home
                 : FEE_2026.nursingGuide.facility;
-            nursingUnits = unitPerVisit * Math.min(2, visitFreq);
-            rawNursingCopay = Math.round(nursingUnits * 10 * nursingRatio);
+            guidanceUnits = unitPerVisit * Math.min(2, visitFreq);
+            rawGuidanceCopay = Math.round(guidanceUnits * 10 * nursingRatio);
+        }
+
+        if (visitNursingType === 'kaigo' && visitNursingWeeklyFreq > 0) {
+            rawVisitNursingKaigoCopay = calcKaigoVisitNursingCopay(
+                visitNursingWeeklyFreq, nursingRatio, visitNursingDuration
+            );
         }
 
         const result = applyPublicExpense({
-            publicExpense, medicalTotal10, medTotal10, medicalRatio, nursingRatio,
-            nursingUnits, rawMedicalCopay, rawMedCopay, rawNursingCopay,
+            publicExpense, medicalTotal10: medicalTotal10 + visitNursingMedical10, medTotal10, medicalRatio, nursingRatio,
+            guidanceUnits, rawMedicalCopay, rawMedCopay,
+            rawGuidanceCopay, rawVisitNursingKaigoCopay,
             age, incomeKey, visitFreq, emergencyVisits,
             hasDisabilityCert: hasDisabilityCert && publicExpense === 'none',
             disabilityGrade,
@@ -1145,7 +1314,27 @@ document.addEventListener('DOMContentLoaded', () => {
             tablePublicLimitApplied.textContent = `-${Math.round(result.publicLimitDeduction).toLocaleString()}`;
         }
 
-        tableNursingCopay.textContent = result.nursing.toLocaleString();
+        if (rowGuidanceDetail) {
+            rowGuidanceDetail.style.display = useNursing ? 'table-row' : 'none';
+        }
+        if (tableGuidanceCopay) {
+            tableGuidanceCopay.textContent = (result.guidance ?? 0).toLocaleString();
+        }
+        if (rowVisitNursingDetail) {
+            const showVisitNursing = visitNursingType !== 'none' && visitNursingWeeklyFreq > 0 && !applyCancerCare;
+            rowVisitNursingDetail.style.display = showVisitNursing ? 'table-row' : 'none';
+            if (showVisitNursing && tableVisitNursingLabel) {
+                tableVisitNursingLabel.textContent = getVisitNursingLabel(
+                    visitNursingType, visitNursingDuration, visitNursingWeeklyFreq, visitNursingPalliative
+                );
+            }
+        }
+        if (tableVisitNursingCopay) {
+            const vnCopay = visitNursingType === 'kaigo'
+                ? (result.visitNursingKaigo ?? 0)
+                : (visitNursingType === 'iryo' ? Math.round(visitNursingMedical10 * medicalRatio) : 0);
+            tableVisitNursingCopay.textContent = vnCopay.toLocaleString();
+        }
         tableMedicationCopay.textContent = result.medication.toLocaleString();
 
         updateDonutChart(result.medical, result.nursing, result.medication);
@@ -1153,14 +1342,22 @@ document.addEventListener('DOMContentLoaded', () => {
             age, useNursing, publicExpense, hasPrescription, visitFreq, emergencyVisits,
             applyCancerCare, hasDisabilityCert, homeGuidanceType, clinicMeets20, patientStatus, clinicType,
             buildingPatientTier, addonItems, addonFlags, over12Avg, location,
-            useHouseholdHighCost, householdOtherCopay, kinouBedType, cancerCareWeeks
+            useHouseholdHighCost, householdOtherCopay, kinouBedType, cancerCareWeeks,
+            visitNursingType, visitNursingWeeklyFreq, visitNursingDuration, visitNursingPalliative
         });
         updatePrintData({
             age, medicalRatio, location, incomeKey, visitFreq, emergencyVisits,
             useNursing, publicExpense, finalPatientTotal,
             medicalCopay: result.medical, nursingCopay: result.nursing,
+            guidanceCopay: result.guidance ?? 0,
+            visitNursingCopay: visitNursingType === 'kaigo'
+                ? (result.visitNursingKaigo ?? 0)
+                : (visitNursingType === 'iryo' ? Math.round(visitNursingMedical10 * medicalRatio) : 0),
             medicationCopay: result.medication, applyCancerCare, cancerCareWeeks,
-            hasDisabilityCert, guidanceLabel, clinicType, patientStatus, buildingPatientTier, addonItems
+            hasDisabilityCert, guidanceLabel, clinicType, patientStatus, buildingPatientTier, addonItems,
+            visitNursingType, visitNursingWeeklyFreq, visitNursingLabel: getVisitNursingLabel(
+                visitNursingType, visitNursingDuration, visitNursingWeeklyFreq, visitNursingPalliative
+            )
         });
     }
 
@@ -1198,7 +1395,8 @@ document.addEventListener('DOMContentLoaded', () => {
             age, useNursing, publicExpense, hasPrescription, visitFreq, emergencyVisits,
             applyCancerCare, hasDisabilityCert, homeGuidanceType, clinicMeets20, patientStatus, clinicType,
             buildingPatientTier, addonItems, addonFlags, over12Avg, location,
-            useHouseholdHighCost, householdOtherCopay, kinouBedType, cancerCareWeeks
+            useHouseholdHighCost, householdOtherCopay, kinouBedType, cancerCareWeeks,
+            visitNursingType, visitNursingWeeklyFreq, visitNursingDuration, visitNursingPalliative
         } = ctx;
         const isSenior = age === '75' || age === '70';
         const items = [];
@@ -1274,14 +1472,32 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         if (useNursing) {
-            items.push('<strong>居宅療養管理指導費</strong>: 介護保険の支給限度額に影響しません（別枠・全額支給）。');
+            items.push('<strong>居宅療養管理指導費</strong>: 医師の訪問に連動し月最大2回。介護保険の支給限度額に影響しません（別枠・全額支給）。');
+        }
+
+        if (visitNursingType && visitNursingType !== 'none' && !applyCancerCare && visitNursingWeeklyFreq > 0) {
+            const monthlyVisits = getVisitNursingMonthlyVisits(visitNursingWeeklyFreq);
+            if (visitNursingType === 'kaigo') {
+                items.push(
+                    `<strong>訪問看護（介護保険）</strong>: 週${visitNursingWeeklyFreq}回×4週＝月${monthlyVisits}回の概算。処遇改善加算（1.8%）込み。指定難病の上限には<strong>含まれません</strong>（居宅療養管理指導のみ合算）。`
+                );
+            } else if (visitNursingType === 'iryo') {
+                const note = visitNursingPalliative
+                    ? '緩和ケア等専門研修を受けた看護師による12,850円/回'
+                    : '基本療養費Ⅰ/Ⅱ（週3日目まで・4日目以降で単価切替）';
+                items.push(
+                    `<strong>訪問看護（医療保険）</strong>: ${note}。週${visitNursingWeeklyFreq}回で概算し、<strong>医療保険自己負担に合算</strong>（高額療養費の対象）。`
+                );
+            }
+        } else if (applyCancerCare) {
+            items.push('<strong>訪問看護</strong>: 在がん総適用時は訪問看護ステーションの費用も包括のため、別途請求されません。');
         }
 
         if (publicExpense === 'nanbyou') {
             const longTermNote = nanbyouLongTermCheck?.checked
                 ? '高額かつ長期該当の軽減上限を適用しています。'
                 : '';
-            items.push(`<strong>指定難病</strong>: 自己負担2割（1割の方は1割維持）。医療・お薬・居宅療養管理指導の<strong>合算上限</strong>が適用されます。${longTermNote}`);
+            items.push(`<strong>指定難病</strong>: 自己負担2割（1割の方は1割維持）。医療・お薬・<strong>居宅療養管理指導</strong>の合算上限が適用されます。訪問看護（介護）は上限外です。${longTermNote}`);
         } else if (publicExpense === 'welfare') {
             items.push('<strong>生活保護</strong>: 医療扶助・介護扶助により自己負担0円。');
         } else if (publicExpense === 'jiritsu') {
@@ -1341,6 +1557,7 @@ document.addEventListener('DOMContentLoaded', () => {
             age, medicalRatio, location, incomeKey, visitFreq, emergencyVisits,
             useNursing, publicExpense, finalPatientTotal,
             medicalCopay, nursingCopay, medicationCopay,
+            guidanceCopay, visitNursingCopay, visitNursingType, visitNursingLabel,
             applyCancerCare, cancerCareWeeks, hasDisabilityCert, guidanceLabel, clinicType,
             buildingPatientTier, addonItems
         } = data;
@@ -1375,7 +1592,12 @@ document.addEventListener('DOMContentLoaded', () => {
             : `${visitFreq}回/月`;
         document.getElementById('print-emergency').textContent = applyCancerCare
             ? '包括内' : `${emergencyVisits}回/月`;
-        document.getElementById('print-nursing').textContent = useNursing ? 'あり' : 'なし';
+        const nursingParts = [];
+        if (useNursing) nursingParts.push('居宅療養管理指導');
+        if (visitNursingType && visitNursingType !== 'none' && !applyCancerCare) {
+            nursingParts.push(visitNursingType === 'kaigo' ? '訪問看護（介護）' : '訪問看護（医療）');
+        }
+        document.getElementById('print-nursing').textContent = nursingParts.length > 0 ? nursingParts.join('・') : 'なし';
 
         const publicLabels = {
             welfare: '生活保護', nanbyou: '指定難病', jiritsu: '自立支援',
@@ -1387,6 +1609,17 @@ document.addEventListener('DOMContentLoaded', () => {
         document.getElementById('print-detail-medical-val').textContent = medicalCopay.toLocaleString();
         document.getElementById('print-detail-nursing-val').textContent = nursingCopay.toLocaleString();
         document.getElementById('print-detail-medication-val').textContent = medicationCopay.toLocaleString();
+
+        const printGuidanceEl = document.getElementById('print-detail-guidance-val');
+        const printVisitNursingEl = document.getElementById('print-detail-visit-nursing-val');
+        if (printGuidanceEl) printGuidanceEl.textContent = (guidanceCopay ?? 0).toLocaleString();
+        if (printVisitNursingEl) printVisitNursingEl.textContent = (visitNursingCopay ?? 0).toLocaleString();
+        const printVisitNursingDesc = document.getElementById('print-detail-visit-nursing-desc');
+        if (printVisitNursingDesc) {
+            printVisitNursingDesc.textContent = visitNursingLabel
+                ? `${visitNursingLabel}${visitNursingType === 'iryo' ? '（医療保険に含む）' : ''}`
+                : '—';
+        }
 
         document.getElementById('print-detail-medical-desc').textContent = applyCancerCare
             ? `在宅がん医療総合診療料（1日×7日×${cancerCareWeeks}週）`
@@ -1507,13 +1740,27 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
     nursingInsuranceSelect.addEventListener('change', () => {
-        const useNursing = nursingInsuranceSelect.value === 'yes';
-        nursingInsuranceDetails.style.display = useNursing ? 'block' : 'none';
-        rowNursingDetail.style.display = useNursing ? 'table-row' : 'none';
+        toggleNursingDetailsUI();
         updateCalculations();
     });
 
     nursingRatioSelect.addEventListener('change', updateCalculations);
+
+    if (visitNursingTypeSelect) {
+        visitNursingTypeSelect.addEventListener('change', () => {
+            toggleVisitNursingUI();
+            toggleNursingDetailsUI();
+            updateCalculations();
+        });
+    }
+    if (visitNursingFreqSlider) {
+        visitNursingFreqSlider.addEventListener('input', () => {
+            if (visitNursingFreqVal) visitNursingFreqVal.textContent = visitNursingFreqSlider.value;
+            updateCalculations();
+        });
+    }
+    if (visitNursingDurationSelect) visitNursingDurationSelect.addEventListener('change', updateCalculations);
+    if (visitNursingIryoPalliativeCheck) visitNursingIryoPalliativeCheck.addEventListener('change', updateCalculations);
 
     publicExpenseSelect.addEventListener('change', () => {
         [publicNanbyouDetails, publicJiritsuDetails, publicLocalDetails].forEach(el => el.classList.add('hidden'));
@@ -1559,6 +1806,8 @@ document.addEventListener('DOMContentLoaded', () => {
     toggleKinouBedTypeUI();
     toggleHouseholdHighCostUI();
     toggleCancerCareUI();
+    toggleVisitNursingUI();
+    toggleNursingDetailsUI();
     bindAddonInputs();
     syncEmergencyTimeSliders();
     medicationTotal10Cache = getMedicationTotal10();
